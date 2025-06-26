@@ -254,10 +254,11 @@ add_compile_options(-g
                     $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>)
 
 add_compile_options(-Wno-unused-parameter
-                    $<$<COMPILE_LANGUAGE:CXX>:-Wno-incompatible-pointer-types>
-                    -Wno-unknown-warning-option
+	#$<$<COMPILE_LANGUAGE:CXX>:-Wno-incompatible-pointer-types>
+	            -Wno-unknown-warning-option
+		    -Wno-ignored-attributes
                     -Wno-deprecated-declarations
-                    -Wno-missing-designated-field-initializers
+		    -Wno-missing-designated-field-initializers
                     -Wno-sign-compare)
 
 if (COMPILER_GCC)
@@ -495,16 +496,16 @@ set(COMMON_THIRDPARTY
     ${COMMON_THIRDPARTY}
 )
 
-if ((ARCH_AMD64 OR ARCH_AARCH64) AND OS_LINUX)
-    add_library(hadoop_hdfs STATIC IMPORTED)
-    set_target_properties(hadoop_hdfs PROPERTIES IMPORTED_LOCATION ${THIRDPARTY_DIR}/lib/hadoop_hdfs/native/libhdfs.a)
-
-    set(COMMON_THIRDPARTY
-        ${COMMON_THIRDPARTY}
-        hadoop_hdfs
-    )
-    add_definitions(-DUSE_HADOOP_HDFS)
-else()
+#if ((ARCH_AMD64 OR ARCH_AARCH64) AND OS_LINUX)
+#    add_library(hadoop_hdfs STATIC IMPORTED)
+#    set_target_properties(hadoop_hdfs PROPERTIES IMPORTED_LOCATION ${THIRDPARTY_DIR}/lib/hadoop_hdfs/native/libhdfs.a)
+#
+#    set(COMMON_THIRDPARTY
+#        ${COMMON_THIRDPARTY}
+#        hadoop_hdfs
+#    )
+#    add_definitions(-DUSE_HADOOP_HDFS)
+#else()
     add_library(hdfs3 STATIC IMPORTED)
     set_target_properties(hdfs3 PROPERTIES IMPORTED_LOCATION ${THIRDPARTY_DIR}/lib/libhdfs3.a)
 
@@ -514,7 +515,7 @@ else()
         hdfs3
     )
     add_definitions(-DUSE_LIBHDFS3)
-endif()
+#endif()
 
 if (absl_FOUND)
     set(COMMON_THIRDPARTY

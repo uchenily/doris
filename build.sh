@@ -554,8 +554,9 @@ if [[ "${BUILD_BE}" -eq 1 ]]; then
         "${DORIS_HOME}/be"
 
     if [[ "${OUTPUT_BE_BINARY}" -eq 1 ]]; then
-        "${BUILD_SYSTEM}" -j "${PARALLEL}"
-        "${BUILD_SYSTEM}" install
+        # "${BUILD_SYSTEM}" -j "${PARALLEL}"
+        "${BUILD_SYSTEM}" -j "${PARALLEL}" doris_be
+        # "${BUILD_SYSTEM}" install
     fi
 
     cd "${DORIS_HOME}"

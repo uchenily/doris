@@ -527,18 +527,18 @@ int main(int argc, char** argv) {
         exit(-1);
     }
 
-    // begin to start services
-    doris::ThriftRpcHelper::setup(exec_env);
-    // 1. thrift server with be_port
-    std::unique_ptr<doris::ThriftServer> be_server;
-    EXIT_IF_ERROR(
-            doris::BackendService::create_service(exec_env, doris::config::be_port, &be_server));
-    status = be_server->start();
-    if (!status.ok()) {
-        LOG(ERROR) << "Doris Be server did not start correctly, exiting";
-        doris::shutdown_logging();
-        exit(1);
-    }
+    // // begin to start services
+    // doris::ThriftRpcHelper::setup(exec_env);
+    // // 1. thrift server with be_port
+    // std::unique_ptr<doris::ThriftServer> be_server;
+    // EXIT_IF_ERROR(
+    //         doris::BackendService::create_service(exec_env, doris::config::be_port, &be_server));
+    // status = be_server->start();
+    // if (!status.ok()) {
+    //     LOG(ERROR) << "Doris Be server did not start correctly, exiting";
+    //     doris::shutdown_logging();
+    //     exit(1);
+    // }
 
     // 2. bprc service
     std::unique_ptr<doris::BRpcService> brpc_service =
@@ -620,8 +620,8 @@ int main(int argc, char** argv) {
     http_service->stop();
     http_service.reset(nullptr);
     LOG(INFO) << "Http service stopped";
-    be_server->stop();
-    be_server.reset(nullptr);
+    // be_server->stop();
+    // be_server.reset(nullptr);
     LOG(INFO) << "Be server stopped";
     brpc_service.reset(nullptr);
     LOG(INFO) << "Brpc service stopped";

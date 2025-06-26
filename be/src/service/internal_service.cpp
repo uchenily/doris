@@ -369,6 +369,7 @@ void PInternalServiceImpl::_exec_plan_fragment_in_pthread(
     response->set_execution_done_time(tv2.tv_sec * 1000LL + tv2.tv_usec / 1000);
 }
 
+// brpc 入口
 void PInternalServiceImpl::exec_plan_fragment_prepare(google::protobuf::RpcController* controller,
                                                       const PExecPlanFragmentRequest* request,
                                                       PExecPlanFragmentResult* response,
@@ -533,6 +534,7 @@ void PInternalServiceImpl::tablet_writer_cancel(google::protobuf::RpcController*
     }
 }
 
+// 入口
 Status PInternalServiceImpl::_exec_plan_fragment_impl(
         const std::string& ser_request, PFragmentRequestVersion version, bool compact,
         const std::function<void(RuntimeState*, Status*)>& cb) {
@@ -589,11 +591,35 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
 
         return Status::OK();
     } else if (version == PFragmentRequestVersion::VERSION_3) {
+        // 一般是走这里
         TPipelineFragmentParamsList t_request;
         {
             const uint8_t* buf = (const uint8_t*)ser_request.data();
             uint32_t len = ser_request.size();
             RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
+        }
+
+        // NOTE: 打印这个结构
+        auto transport = std::make_shared<apache::thrift::server::TMemoryBuffer>();
+        // auto protocol = std::make_shared<apache::thrift::protocol::TJSONProtocol>(transport); // 输出json, 但是缺少字段信息, 不可读
+        auto protocol = std::make_shared<apache::thrift::protocol::TDebugProtocol>(transport); // 可读性好
+
+        t_request.write(reinterpret_cast<::apache::thrift::protocol::TProtocol*>(protocol.get())); // t_request 是原来代码中的变量
+
+        uint8_t* buf;
+        uint32_t size;
+        transport->getBuffer(&buf, &size);
+
+        std::string msg(reinterpret_cast<char*>(buf), size);
+
+            std::ofstream outFile("/tmp/doris-request");
+
+        if (outFile.is_open()) {
+            outFile << msg; // 将字符串写入文件
+            outFile.close();    // 关闭文件
+            // std::cout << "成功写入文件 /tmp/doris-request" << std::endl;
+        } else {
+            std::cerr << "无法打开文件 /tmp/doris-request" << std::endl;
         }
 
         const auto& fragment_list = t_request.params_list;

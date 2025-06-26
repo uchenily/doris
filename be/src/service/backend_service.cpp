@@ -669,6 +669,7 @@ void BackendService::exec_plan_fragment(TExecPlanFragmentResult& return_val,
                                         const TExecPlanFragmentParams& params) {
     LOG(INFO) << "exec_plan_fragment() instance_id=" << print_id(params.params.fragment_instance_id)
               << " coord=" << params.coord << " backend#=" << params.backend_num;
+              // execute plan
     return_val.__set_status(start_plan_fragment_execution(params).to_thrift());
 }
 
@@ -676,6 +677,7 @@ Status BackendService::start_plan_fragment_execution(const TExecPlanFragmentPara
     if (!exec_params.fragment.__isset.output_sink) {
         return Status::InternalError("missing sink in plan fragment");
     }
+    // FragmentManager exec plan
     return _exec_env->fragment_mgr()->exec_plan_fragment(exec_params,
                                                          QuerySource::INTERNAL_FRONTEND);
 }
