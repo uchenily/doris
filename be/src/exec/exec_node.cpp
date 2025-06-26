@@ -304,6 +304,7 @@ Status ExecNode::create_tree_helper(RuntimeState* state, ObjectPool* pool,
 
     // Step 1.1
     // Record current node if we have parent or record myself as root node.
+    // 如果parent为nullptr, 那么就把当前节点当成root节点 (也就是thrift_plan_nodes[0]), thrift_plan_nodes 是拓扑排序过后的?
     if (parent != nullptr) {
         parent->_children.push_back(cur_exec_node);
     } else {
@@ -312,6 +313,7 @@ Status ExecNode::create_tree_helper(RuntimeState* state, ObjectPool* pool,
 
     // Step 2
     // Create child ExecNode tree of current node in a recursive manner.
+    // 递归处理子节点
     for (int i = 0; i < num_children; i++) {
         ++*node_idx;
         RETURN_IF_ERROR(create_tree_helper(state, pool, thrift_plan_nodes, descs, cur_exec_node,
@@ -326,6 +328,7 @@ Status ExecNode::create_tree_helper(RuntimeState* state, ObjectPool* pool,
     }
 
     // Step 3 Init myself after sub ExecNode tree is created and initialized
+    // 所有子节点处理完成后, 初始化当前节点
     RETURN_IF_ERROR(cur_exec_node->init(cur_plan_node, state));
 
     // build up tree of profiles; add children >0 first, so that when we print

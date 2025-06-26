@@ -190,6 +190,7 @@ public:
     // Creates exec node tree from list of nodes contained in plan via depth-first
     // traversal. All nodes are placed in pool.
     // Returns error if 'plan' is corrupted, otherwise success.
+    // 深度优先遍历, 根据 request.fragment.plan 中的信息创建执行树
     [[nodiscard]] static Status create_tree(RuntimeState* state, ObjectPool* pool,
                                             const TPlan& plan, const DescriptorTbl& descs,
                                             ExecNode** root);

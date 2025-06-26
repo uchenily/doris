@@ -1055,6 +1055,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
     if (enable_pipeline_x) {
         _setup_shared_hashtable_for_broadcast_join(params, query_ctx.get());
         int64_t duration_ns = 0;
+        // 通过query_ctx 创建 pipeline fragment上下文
         std::shared_ptr<pipeline::PipelineFragmentContext> context =
                 std::make_shared<pipeline::PipelineXFragmentContext>(
                         query_ctx->query_id(), params.fragment_id, query_ctx, _exec_env, cb,
@@ -1063,6 +1064,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                                 std::placeholders::_1, std::placeholders::_2));
         {
             SCOPED_RAW_TIMER(&duration_ns);
+            // prepare的时候会构建pipeline
             auto prepare_st = context->prepare(params, _thread_pool.get());
             if (!prepare_st.ok()) {
                 context->close_if_prepare_failed(prepare_st);
@@ -1099,6 +1101,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
         }
 
         {
+            // 获取fragment_instance_id
             std::vector<TUniqueId> ins_ids;
             reinterpret_cast<pipeline::PipelineXFragmentContext*>(context.get())
                     ->instance_ids(ins_ids);

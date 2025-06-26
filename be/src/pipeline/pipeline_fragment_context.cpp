@@ -291,11 +291,13 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
     _runtime_state->set_desc_tbl(_desc_tbl);
 
     // 2. Create ExecNode to build pipeline with PipelineFragmentContext
+    // 通过request.fragment.plan信息构建一棵树, 保存到_root_plan
     RETURN_IF_ERROR_OR_CATCH_EXCEPTION(
             ExecNode::create_tree(_runtime_state.get(), _runtime_state->obj_pool(),
                                   request.fragment.plan, *_desc_tbl, &_root_plan));
 
     // Set senders of exchange nodes before pipeline build
+    // 获取所有exchange类型的节点, 并根据per_exch_num_senders(这是一个map)设置num_senders参数
     std::vector<ExecNode*> exch_nodes;
     _root_plan->collect_nodes(TPlanNodeType::EXCHANGE_NODE, &exch_nodes);
     for (ExecNode* exch_node : exch_nodes) {
@@ -306,6 +308,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
     }
 
     // All prepare work do in exec node tree
+    // 既然树已经构建好了, 现在从root节点开始递归执行prepare
     RETURN_IF_ERROR(_root_plan->prepare(_runtime_state.get()));
     // set scan ranges
     std::vector<ExecNode*> scan_nodes;
@@ -320,6 +323,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
     for (auto& i : scan_nodes) {
         // TODO(cmy): this "if...else" should be removed once all ScanNode are derived from VScanNode.
         ExecNode* node = i;
+        // 一般情况下应该是用的OlapScanNode?
         if (typeid(*node) == typeid(vectorized::NewOlapScanNode) ||
             typeid(*node) == typeid(vectorized::NewFileScanNode) ||
             typeid(*node) == typeid(vectorized::NewOdbcScanNode) ||
@@ -391,6 +395,7 @@ Status PipelineFragmentContext::_build_pipeline_tasks(
         RETURN_IF_ERROR(sink_operator->init(request.fragment.output_sink));
 
         RETURN_IF_ERROR(pipeline->build_operators());
+        // 产生一个pipeline task
         auto task =
                 std::make_unique<PipelineTask>(pipeline, _total_tasks++, _runtime_state.get(),
                                                sink_operator, this, pipeline->pipeline_profile());
