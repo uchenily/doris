@@ -150,6 +150,7 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
         st = _exec_env->fragment_mgr()->exec_plan_fragment(ctx->put_result.params,
                                                            QuerySource::STREAM_LOAD, exec_fragment);
     } else {
+        // NOTE(chen): 重点关注StreamLoadContext 的put_result属性
         st = _exec_env->fragment_mgr()->exec_plan_fragment(ctx->put_result.pipeline_params,
                                                            QuerySource::STREAM_LOAD, exec_fragment);
     }

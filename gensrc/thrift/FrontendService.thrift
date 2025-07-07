@@ -1680,6 +1680,7 @@ struct TFetchRunningQueriesResult {
 struct TFetchRunningQueriesRequest {
 }
 
+# FE提供rpc服务, BE去调?
 service FrontendService {
     TGetDbsResult getDbNames(1: TGetDbsParams params)
     TGetTablesResult getTableNames(1: TGetTablesParams params)
@@ -1719,6 +1720,7 @@ service FrontendService {
 
     TWaitingTxnStatusResult waitingTxnStatus(1: TWaitingTxnStatusRequest request)
 
+    # BE发起
     TStreamLoadPutResult streamLoadPut(1: TStreamLoadPutRequest request)
 
     TStreamLoadMultiTablePutResult streamLoadMultiTablePut(1: TStreamLoadPutRequest request)

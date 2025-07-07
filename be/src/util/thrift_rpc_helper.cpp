@@ -61,7 +61,7 @@ void ThriftRpcHelper::setup(ExecEnv* exec_env) {
 
 template <typename T>
 Status ThriftRpcHelper::rpc(const std::string& ip, const int32_t port,
-                            std::function<void(ClientConnection<T>&)> callback, int timeout_ms) {
+                            std::function<void(ClientConnection<T>&)> callable, int timeout_ms) {
     TNetworkAddress address = make_network_address(ip, port);
     Status status;
     ClientConnection<T> client(_s_exec_env->get_client_cache<T>(), address, timeout_ms, &status);
@@ -72,7 +72,7 @@ Status ThriftRpcHelper::rpc(const std::string& ip, const int32_t port,
     }
     try {
         try {
-            callback(client);
+            callable(client);
         } catch (apache::thrift::transport::TTransportException& e) {
 #ifndef ADDRESS_SANITIZER
             LOG(WARNING) << "retrying call frontend service after "
@@ -96,7 +96,7 @@ Status ThriftRpcHelper::rpc(const std::string& ip, const int32_t port,
 #endif
                 return status;
             }
-            callback(client);
+            callable(client);
         }
     } catch (apache::thrift::TException& e) {
 #ifndef ADDRESS_SANITIZER

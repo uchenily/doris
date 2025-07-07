@@ -300,8 +300,10 @@ void HttpStreamAction::free_handler_ctx(std::shared_ptr<void> param) {
     http_stream_current_processing->increment(-1);
 }
 
+// 处理put请求?
 Status HttpStreamAction::process_put(HttpRequest* http_req,
                                      std::shared_ptr<StreamLoadContext> ctx) {
+    // 接下来的工作就是组装 TStreamLoadPutRequest 参数
     TStreamLoadPutRequest request;
     if (http_req != nullptr) {
         request.__set_load_sql(http_req->header(HTTP_SQL));
@@ -337,9 +339,11 @@ Status HttpStreamAction::process_put(HttpRequest* http_req,
     // plan this load
     TNetworkAddress master_addr = _exec_env->master_info()->network_address;
     int64_t stream_load_put_start_time = MonotonicNanos();
+    // 发送rpc请求到fe, 获取执行执行(TPipelineFramgnetParams)等
     RETURN_IF_ERROR(ThriftRpcHelper::rpc<FrontendServiceClient>(
             master_addr.hostname, master_addr.port,
             [&request, ctx](FrontendServiceConnection& client) {
+                // rpc结束, 设置ctx->put_result
                 client->streamLoadPut(ctx->put_result, request);
             }));
     ctx->stream_load_put_cost_nanos = MonotonicNanos() - stream_load_put_start_time;
@@ -371,7 +375,7 @@ Status HttpStreamAction::process_put(HttpRequest* http_req,
                 ctx->format == TFileFormatType::FORMAT_CSV_LZOP ||
                 ctx->format == TFileFormatType::FORMAT_CSV_LZ4BLOCK ||
                 ctx->format == TFileFormatType::FORMAT_CSV_SNAPPYBLOCK) {
-                content_length *= 3;
+                content_length *= 3; // ???
             }
         }
         ctx->put_result.params.__set_content_length(content_length);

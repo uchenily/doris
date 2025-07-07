@@ -1047,6 +1047,15 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
     VLOG_ROW << "query: " << print_id(params.query_id) << "query options is "
              << apache::thrift::ThriftDebugString(params.query_options).c_str();
 
+    std::string msg2 = apache::thrift::ThriftDebugString(params);
+    std::ofstream outFile2("/tmp/doris-pipeline-fragment-params");
+    if (outFile2.is_open()) {
+        outFile2 << msg2;
+        outFile2.close();
+    } else {
+        std::cerr << "无法打开文件 /tmp/doris-pipeline-fragment-params" << std::endl;
+    }
+
     std::shared_ptr<QueryContext> query_ctx;
     RETURN_IF_ERROR(_get_query_ctx(params, params.query_id, true, query_source, query_ctx));
     SCOPED_ATTACH_TASK(query_ctx.get());
@@ -1133,7 +1142,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                 !params.need_wait_execution_trigger) {
                 query_ctx->set_ready_to_execute_only();
             }
-            _setup_shared_hashtable_for_broadcast_join(params, local_params, query_ctx.get());
+            _setup_shared_hashtable_for_broadcast_join(params, local_params, query_ctx.get()); // stream load 为什么需要走这里?
             std::shared_ptr<pipeline::PipelineFragmentContext> context =
                     std::make_shared<pipeline::PipelineFragmentContext>(
                             query_ctx->query_id(), fragment_instance_id, params.fragment_id,
@@ -1143,7 +1152,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                                     this, std::placeholders::_1, std::placeholders::_2));
             {
                 SCOPED_RAW_TIMER(&duration_ns);
-                auto prepare_st = context->prepare(params, i);
+                auto prepare_st = context->prepare(params, i); // prepare
                 if (!prepare_st.ok()) {
                     LOG(WARNING) << "Prepare failed: " << prepare_st.to_string();
                     context->close_if_prepare_failed(prepare_st);
@@ -1165,7 +1174,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
             }
             _pipeline_map.insert(fragment_instance_id, context);
 
-            return context->submit();
+            return context->submit(); // submit
         };
 
         int target_size = params.local_params.size();

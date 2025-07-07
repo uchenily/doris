@@ -42,6 +42,7 @@ public:
     NewLoadStreamMgr();
     ~NewLoadStreamMgr();
 
+    // 将 <id, streamload_context> 对存入全局的map
     Status put(const UniqueId& id, std::shared_ptr<StreamLoadContext> stream) {
         {
             std::lock_guard<std::mutex> l(_lock);

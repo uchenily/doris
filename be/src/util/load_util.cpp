@@ -72,7 +72,6 @@ void LoadUtil::parse_format(const std::string& format_str, const std::string& co
     } else if (iequal(format_str, "ARROW")) {
         *format_type = TFileFormatType::FORMAT_ARROW;
     }
-    return;
 }
 
 bool LoadUtil::is_format_support_streaming(TFileFormatType::type format) {
@@ -92,6 +91,5 @@ bool LoadUtil::is_format_support_streaming(TFileFormatType::type format) {
     default:
         return false;
     }
-    return false;
 }
 } // namespace  doris

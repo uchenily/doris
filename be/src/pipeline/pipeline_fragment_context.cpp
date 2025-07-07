@@ -325,7 +325,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
         ExecNode* node = i;
         // 一般情况下应该是用的OlapScanNode?
         if (typeid(*node) == typeid(vectorized::NewOlapScanNode) ||
-            typeid(*node) == typeid(vectorized::NewFileScanNode) ||
+            typeid(*node) == typeid(vectorized::NewFileScanNode) || // stream load 对应这种
             typeid(*node) == typeid(vectorized::NewOdbcScanNode) ||
             typeid(*node) == typeid(vectorized::NewEsScanNode) ||
             typeid(*node) == typeid(vectorized::VMetaScanNode) ||
@@ -362,6 +362,7 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
                 _runtime_state.get(), &_sink, *_desc_tbl));
     }
 
+    // NOTE(chen): 创建root pipeline
     _root_pipeline = fragment_context->add_pipeline();
     _root_pipeline->set_is_root_pipeline();
     RETURN_IF_ERROR(_build_pipelines(_root_plan, _root_pipeline));

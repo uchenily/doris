@@ -612,7 +612,7 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
 
         std::string msg(reinterpret_cast<char*>(buf), size);
 
-            std::ofstream outFile("/tmp/doris-request");
+        std::ofstream outFile("/tmp/doris-request");
 
         if (outFile.is_open()) {
             outFile << msg; // 将字符串写入文件
@@ -620,6 +620,18 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
             // std::cout << "成功写入文件 /tmp/doris-request" << std::endl;
         } else {
             std::cerr << "无法打开文件 /tmp/doris-request" << std::endl;
+        }
+
+        std::string msg2 = apache::thrift::ThriftDebugString(t_request);
+
+        std::ofstream outFile2("/tmp/doris-request2");
+
+        if (outFile2.is_open()) {
+            outFile2 << msg2; // 将字符串写入文件
+            outFile2.close();    // 关闭文件
+            // std::cout << "成功写入文件 /tmp/doris-request" << std::endl;
+        } else {
+            std::cerr << "无法打开文件 /tmp/doris-request2" << std::endl;
         }
 
         const auto& fragment_list = t_request.params_list;

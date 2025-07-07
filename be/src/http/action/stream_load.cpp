@@ -105,6 +105,7 @@ void StreamLoadAction::handle(HttpRequest* req) {
 
     // status already set to fail
     if (ctx->status.ok()) {
+        // 根据处理ctx类型, 执行handle方法
         ctx->status = _handle(ctx);
         if (!ctx->status.ok() && !ctx->status.is<PUBLISH_TIMEOUT>()) {
             LOG(WARNING) << "handle streaming load failed, id=" << ctx->id
@@ -163,6 +164,7 @@ Status StreamLoadAction::_handle(std::shared_ptr<StreamLoadContext> ctx) {
     if (!ctx->use_streaming) {
         // we need to close file first, then execute_plan_fragment here
         ctx->body_sink.reset();
+        // stream_load_executor 执行计划
         RETURN_IF_ERROR(_exec_env->stream_load_executor()->execute_plan_fragment(ctx));
     }
 
@@ -187,9 +189,11 @@ Status StreamLoadAction::_handle(std::shared_ptr<StreamLoadContext> ctx) {
     return Status::OK();
 }
 
+// 所有header收到时调用
 int StreamLoadAction::on_header(HttpRequest* req) {
     streaming_load_current_processing->increment(1);
 
+    // 创建ctx, 这个ctx.put_result 是最重要的部分
     std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
     req->set_handler_ctx(ctx);
 
@@ -262,6 +266,7 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
     }
     LoadUtil::parse_format(format_str, http_req->header(HTTP_COMPRESS_TYPE), &ctx->format,
                            &ctx->compress_type);
+    ctx->use_streaming = LoadUtil::is_format_support_streaming(ctx->format);
     if (ctx->format == TFileFormatType::FORMAT_UNKNOWN) {
         return Status::Error<ErrorCode::DATA_FILE_TYPE_ERROR>("unknown data format, format={}",
                                                               http_req->header(HTTP_FORMAT_KEY));
@@ -343,6 +348,7 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
         ctx->begin_txn_cost_nanos = MonotonicNanos() - begin_txn_start_time;
     }
 
+    // header处理完成, 接下来处理剩下的请求部分
     // process put file
     return _process_put(http_req, ctx);
 }
@@ -362,7 +368,7 @@ void StreamLoadAction::on_chunk_data(HttpRequest* req) {
     int64_t start_read_data_time = MonotonicNanos();
     while (evbuffer_get_length(evbuf) > 0) {
         ByteBufferPtr bb;
-        Status st = ByteBuffer::allocate(128 * 1024, &bb);
+        Status st = ByteBuffer::allocate(128 * 1024, &bb); // 反复分配?
         if (!st.ok()) {
             ctx->status = st;
             return;
@@ -403,11 +409,9 @@ void StreamLoadAction::free_handler_ctx(std::shared_ptr<void> param) {
     streaming_load_current_processing->increment(-1);
 }
 
+// 什么时候创建的StreamLoadContext? 什么时候设置的ctx->format属性? 应该在设置ctx->format属性的同时, 设置use_streaming属性
 Status StreamLoadAction::_process_put(HttpRequest* http_req,
                                       std::shared_ptr<StreamLoadContext> ctx) {
-    // Now we use stream
-    ctx->use_streaming = LoadUtil::is_format_support_streaming(ctx->format);
-
     // put request
     TStreamLoadPutRequest request;
     set_request_auth(&request, ctx->auth);
