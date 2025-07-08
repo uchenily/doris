@@ -54,6 +54,7 @@
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
@@ -1039,16 +1040,16 @@ std::string FragmentMgr::dump_pipeline_tasks(TUniqueId& query_id) {
     }
 }
 
-Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
+Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_params,
                                        QuerySource query_source, const FinishCallback& cb) {
-    VLOG_ROW << "query: " << print_id(params.query_id) << " exec_plan_fragment params is "
-             << apache::thrift::ThriftDebugString(params).c_str();
+    VLOG_ROW << "query: " << print_id(pipeline_params.query_id) << " exec_plan_fragment params is "
+             << apache::thrift::ThriftDebugString(pipeline_params).c_str();
     // sometimes TExecPlanFragmentParams debug string is too long and glog
     // will truncate the log line, so print query options seperately for debuggin purpose
-    VLOG_ROW << "query: " << print_id(params.query_id) << "query options is "
-             << apache::thrift::ThriftDebugString(params.query_options).c_str();
+    VLOG_ROW << "query: " << print_id(pipeline_params.query_id) << "query options is "
+             << apache::thrift::ThriftDebugString(pipeline_params.query_options).c_str();
 
-    std::string msg2 = apache::thrift::ThriftDebugString(params);
+    std::string msg2 = apache::thrift::ThriftDebugString(pipeline_params);
     std::ofstream outFile2("/tmp/doris-pipeline-fragment-params");
     if (outFile2.is_open()) {
         outFile2 << msg2;
@@ -1058,12 +1059,12 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
     }
 
     std::shared_ptr<QueryContext> query_ctx;
-    RETURN_IF_ERROR(_get_query_ctx(params, params.query_id, true, query_source, query_ctx));
+    RETURN_IF_ERROR(_get_query_ctx(pipeline_params, pipeline_params.query_id, true, query_source, query_ctx));
     SCOPED_ATTACH_TASK(query_ctx.get());
-    const bool enable_pipeline_x = params.query_options.__isset.enable_pipeline_x_engine &&
-                                   params.query_options.enable_pipeline_x_engine;
+    const bool enable_pipeline_x = pipeline_params.query_options.__isset.enable_pipeline_x_engine &&
+                                   pipeline_params.query_options.enable_pipeline_x_engine;
     if (enable_pipeline_x) {
-        _setup_shared_hashtable_for_broadcast_join(params, query_ctx.get());
+        _setup_shared_hashtable_for_broadcast_join(pipeline_params, query_ctx.get());
         int64_t duration_ns = 0;
         // 通过query_ctx 创建 pipeline fragment上下文
         std::shared_ptr<pipeline::PipelineFragmentContext> context =
@@ -1106,7 +1107,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
             query_ctx->push_instance_ids(fragment_instance_id);
         }
 
-        if (!params.__isset.need_wait_execution_trigger || !params.need_wait_execution_trigger) {
+        if (!pipeline_params.__isset.need_wait_execution_trigger || !pipeline_params.need_wait_execution_trigger) {
             query_ctx->set_ready_to_execute_only();
         }
 
@@ -1120,13 +1121,13 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                 _pipeline_map.insert(ins_id, context);
             }
         }
-        query_ctx->set_pipeline_context(params.fragment_id, context);
+        query_ctx->set_pipeline_context(pipeline_params.fragment_id, context);
 
         RETURN_IF_ERROR(context->submit());
         return Status::OK();
     } else {
-        auto pre_and_submit = [&](int i) {
-            const auto& local_params = params.local_params[i];
+        auto prepare_and_submit = [&](int i) -> Status {
+            const auto& local_params = pipeline_params.local_params[i];
 
             const TUniqueId& fragment_instance_id = local_params.fragment_instance_id;
             {
@@ -1139,11 +1140,12 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
             }
 
             int64_t duration_ns = 0;
-            if (!params.__isset.need_wait_execution_trigger ||
-                !params.need_wait_execution_trigger) {
+            if (!pipeline_params.__isset.need_wait_execution_trigger ||
+                !pipeline_params.need_wait_execution_trigger) {
                 query_ctx->set_ready_to_execute_only();
             }
-            _setup_shared_hashtable_for_broadcast_join(params, local_params, query_ctx.get()); // stream load 为什么需要走这里?
+            _setup_shared_hashtable_for_broadcast_join(
+                    pipeline_params, local_params, query_ctx.get()); // stream load 为什么需要走这里?
             std::shared_ptr<pipeline::PipelineFragmentContext> context =
                     std::make_shared<pipeline::PipelineFragmentContext>(
                             query_ctx->query_id(), fragment_instance_id, params.fragment_id,
@@ -1153,7 +1155,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                                     this, std::placeholders::_1, std::placeholders::_2));
             {
                 SCOPED_RAW_TIMER(&duration_ns);
-                auto prepare_st = context->prepare(params, i); // prepare
+                auto prepare_st = context->prepare(pipeline_params, i); // prepare
                 if (!prepare_st.ok()) {
                     LOG(WARNING) << "Prepare failed: " << prepare_st.to_string();
                     context->close_if_prepare_failed(prepare_st);
@@ -1178,10 +1180,61 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
             return context->submit(); // submit
         };
 
-        int target_size = params.local_params.size();
-        g_pipeline_fragment_instances_count << target_size;
+        // auto run_in_threadpool = [this](auto func, int parallelism) -> Status {
+        //     int prepare_done = {0};
+        //     Status prepare_statuses[parallelism];
+        //     std::mutex m;
+        //     std::condition_variable cv;
+        //
+        //     for (size_t i = 0; i < parallelism; i++) {
+        //         RETURN_IF_ERROR(_thread_pool->submit_func([&, i]() {
+        //             SCOPED_ATTACH_TASK(query_ctx.get());
+        //             prepare_statuses[i] = func(i);
+        //             std::unique_lock<std::mutex> lock(m);
+        //             prepare_done++;
+        //             if (prepare_done == parallelism) {
+        //                 cv.notify_one();
+        //             }
+        //         }));
+        //     }
+        //
+        //     std::unique_lock<std::mutex> lock(m);
+        //     if (prepare_done != parallelism) {
+        //         cv.wait(lock);
+        //
+        //         for (size_t i = 0; i < parallelism; i++) {
+        //             if (!prepare_statuses[i].ok()) {
+        //                 return prepare_statuses[i];
+        //             }
+        //         }
+        //     }
+        //     return Status::OK();
+        // };
 
-        const auto& local_params = params.local_params[0];
+        auto run_in_threadpool = [this](auto func, int parallelism) -> Status {
+            std::latch completion_latch(parallelism);
+            // std::vector<Status> prepare_statuses(parallelism);
+            Status prepare_statuses[parallelism];
+
+            for (size_t i = 0; i < parallelism; i++) {
+                RETURN_IF_ERROR(_thread_pool->submit_func([&, i]() {
+                    SCOPED_ATTACH_TASK(query_ctx.get());
+                    prepare_statuses[i] = func(i);
+                    completion_latch.count_down();
+                }));
+            }
+
+            completion_latch.wait();
+
+            for (size_t i = 0; i < parallelism; i++) {
+                if (!prepare_statuses[i].ok()) {
+                    return prepare_statuses[i];
+                }
+            }
+            return Status::OK();
+        };
+
+        const auto& local_params = pipeline_params.local_params[0];
         if (local_params.__isset.runtime_filter_params) {
             if (local_params.__isset.runtime_filter_params) {
                 query_ctx->runtime_filter_mgr()->set_runtime_filter_params(
@@ -1194,37 +1247,13 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
             query_ctx->init_runtime_predicates({0});
         }
 
-        if (target_size > 1) {
-            int prepare_done = {0};
-            Status prepare_status[target_size];
-            std::mutex m;
-            std::condition_variable cv;
-
-            for (size_t i = 0; i < target_size; i++) {
-                RETURN_IF_ERROR(_thread_pool->submit_func([&, i]() {
-                    SCOPED_ATTACH_TASK(query_ctx.get());
-                    prepare_status[i] = pre_and_submit(i);
-                    std::unique_lock<std::mutex> lock(m);
-                    prepare_done++;
-                    if (prepare_done == target_size) {
-                        cv.notify_one();
-                    }
-                }));
-            }
-
-            std::unique_lock<std::mutex> lock(m);
-            if (prepare_done != target_size) {
-                cv.wait(lock);
-
-                for (size_t i = 0; i < target_size; i++) {
-                    if (!prepare_status[i].ok()) {
-                        return prepare_status[i];
-                    }
-                }
-            }
-            return Status::OK();
+        int pipeline_parallelism = pipeline_params.local_params.size();
+        g_pipeline_fragment_instances_count << pipeline_parallelism;
+        if (pipeline_parallelism > 1) {
+            return run_in_threadpool(prepare_and_submit, pipeline_parallelism);
         } else {
-            return pre_and_submit(0);
+            // FIXME: why not submit to thread pool?
+            return prepare_and_submit(0);
         }
     }
     return Status::OK();
@@ -1919,6 +1948,16 @@ void FragmentMgr::_setup_shared_hashtable_for_broadcast_join(const TExecPlanFrag
     }
 }
 
+// template <typename Object, typename Member>
+//     requires(const Object& obj)
+// {
+//     {obj.__isset.*member}->std::same_as<bool>;
+//     // {obj.*member}->std::is_convertible_v<Member, bool>;
+// }
+// bool has_value(const Object& obj, Member T::* member) {
+//     return obj.__isset.*member && obj.*member;
+// }
+
 void FragmentMgr::_setup_shared_hashtable_for_broadcast_join(
         const TPipelineFragmentParams& params, const TPipelineInstanceParams& local_params,
         QueryContext* query_ctx) {
@@ -1926,6 +1965,10 @@ void FragmentMgr::_setup_shared_hashtable_for_broadcast_join(
         !params.query_options.enable_share_hash_table_for_broadcast_join) {
         return;
     }
+    // if (!has_value(params.query_options,
+    //                TQueryOptions::enable_share_hash_table_for_broadcast_join)) {
+    //     return;
+    // }
 
     if (!params.__isset.fragment || !params.fragment.__isset.plan ||
         params.fragment.plan.nodes.empty()) {

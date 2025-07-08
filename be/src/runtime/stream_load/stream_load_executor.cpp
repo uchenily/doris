@@ -146,11 +146,13 @@ Status StreamLoadExecutor::execute_plan_fragment(std::shared_ptr<StreamLoadConte
     // not allowed, first time in on_chunk_data, second time in StreamLoadExecutor::execute_plan_fragment.
     SCOPED_SWITCH_THREAD_MEM_TRACKER_LIMITER(ExecEnv::GetInstance()->orphan_mem_tracker());
 
+    // stream_load_executor 最终还是交给fragment_mgr来执行fragment
     if (ctx->put_result.__isset.params) {
         st = _exec_env->fragment_mgr()->exec_plan_fragment(ctx->put_result.params,
                                                            QuerySource::STREAM_LOAD, exec_fragment);
     } else {
         // NOTE(chen): 重点关注StreamLoadContext 的put_result属性
+        // 三参数, pipeline_params+callback版本
         st = _exec_env->fragment_mgr()->exec_plan_fragment(ctx->put_result.pipeline_params,
                                                            QuerySource::STREAM_LOAD, exec_fragment);
     }
