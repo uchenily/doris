@@ -740,6 +740,7 @@ Status FragmentMgr::exec_plan_fragment(const TExecPlanFragmentParams& params,
 
 Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
                                        const QuerySource query_source) {
+    // 这是什么逻辑?
     if (params.txn_conf.need_txn) {
         std::shared_ptr<StreamLoadContext> stream_load_ctx =
                 std::make_shared<StreamLoadContext>(_exec_env);

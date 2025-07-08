@@ -199,19 +199,14 @@ int StreamLoadAction::on_header(HttpRequest* req) {
 
     ctx->load_type = TLoadType::MANUL_LOAD;
     ctx->load_src_type = TLoadSourceType::RAW;
+    ctx->begin_receive_and_read_data_cost_nanos = MonotonicNanos();
 
     url_decode(req->param(HTTP_DB_KEY), &ctx->db);
     url_decode(req->param(HTTP_TABLE_KEY), &ctx->table);
-    ctx->label = req->header(HTTP_LABEL_KEY);
-    ctx->two_phase_commit = req->header(HTTP_TWO_PHASE_COMMIT) == "true";
-    Status st = _handle_group_commit(req, ctx);
-    if (!ctx->group_commit && ctx->label.empty()) {
-        ctx->label = generate_uuid_string();
-    }
 
+    Status st = _handle_group_commit(req, ctx);
     LOG(INFO) << "new income streaming load request." << ctx->brief() << ", db=" << ctx->db
               << ", tbl=" << ctx->table << ", group_commit=" << ctx->group_commit;
-    ctx->begin_receive_and_read_data_cost_nanos = MonotonicNanos();
 
     if (st.ok()) {
         st = _on_header(req, ctx);
@@ -241,18 +236,14 @@ int StreamLoadAction::on_header(HttpRequest* req) {
     return 0;
 }
 
-Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<StreamLoadContext> ctx) {
-    // auth information
-    if (!parse_basic_auth(*http_req, &ctx->auth)) {
-        LOG(WARNING) << "parse basic authorization failed." << ctx->brief();
-        return Status::NotAuthorized("no valid Basic authorization");
-    }
-
+namespace {
+Status parse_format(HttpRequest* http_req, std::shared_ptr<StreamLoadContext>& ctx) {
     // get format of this put
     if (!http_req->header(HTTP_COMPRESS_TYPE).empty() &&
         iequal(http_req->header(HTTP_FORMAT_KEY), "JSON")) {
         return Status::NotSupported("compress data of JSON format is not supported.");
     }
+
     std::string format_str = http_req->header(HTTP_FORMAT_KEY);
     if (iequal(format_str, BeConsts::CSV_WITH_NAMES) ||
         iequal(format_str, BeConsts::CSV_WITH_NAMES_AND_TYPES)) {
@@ -266,11 +257,18 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
     }
     LoadUtil::parse_format(format_str, http_req->header(HTTP_COMPRESS_TYPE), &ctx->format,
                            &ctx->compress_type);
-    ctx->use_streaming = LoadUtil::is_format_support_streaming(ctx->format);
     if (ctx->format == TFileFormatType::FORMAT_UNKNOWN) {
         return Status::Error<ErrorCode::DATA_FILE_TYPE_ERROR>("unknown data format, format={}",
                                                               http_req->header(HTTP_FORMAT_KEY));
     }
+
+    ctx->use_streaming = LoadUtil::is_format_support_streaming(ctx->format);
+    return Status::OK();
+}
+
+Status parse_http_headers(HttpRequest* http_req, std::shared_ptr<StreamLoadContext>& ctx) {
+    ctx->label = http_req->header(HTTP_LABEL_KEY);
+    ctx->two_phase_commit = http_req->header(HTTP_TWO_PHASE_COMMIT) == "true";
 
     // check content length
     ctx->body_bytes = 0;
@@ -341,6 +339,19 @@ Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<Strea
     if (!http_req->header(HTTP_COMMENT).empty()) {
         ctx->load_comment = http_req->header(HTTP_COMMENT);
     }
+}
+} // namespace
+
+Status StreamLoadAction::_on_header(HttpRequest* http_req, std::shared_ptr<StreamLoadContext> ctx) {
+    // auth information
+    if (!parse_basic_auth(*http_req, &ctx->auth)) {
+        LOG(WARNING) << "parse basic authorization failed." << ctx->brief();
+        return Status::NotAuthorized("no valid Basic authorization");
+    }
+
+    RETURN_IF_ERROR(parse_format(http_req, ctx));
+    RETURN_IF_ERROR(parse_http_headers(http_req, ctx));
+
     // begin transaction
     if (!ctx->group_commit) {
         int64_t begin_txn_start_time = MonotonicNanos();
@@ -713,6 +724,7 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         return Status::OK();
     }
 
+    // 前面设置了ctx (主要关注put_result), 现在将ctx传给stream_load_executor
     return _exec_env->stream_load_executor()->execute_plan_fragment(ctx);
 }
 
@@ -803,6 +815,11 @@ Status StreamLoadAction::_handle_group_commit(HttpRequest* req,
             }
         }
     }
+
+    if (!ctx->group_commit && ctx->label.empty()) {
+        ctx->label = generate_uuid_string();
+    }
+
     return Status::OK();
 }
 
