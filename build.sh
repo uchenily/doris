@@ -79,10 +79,10 @@ Usage: $0 <options>
 
 clean_gensrc() {
     pushd "${DORIS_HOME}/gensrc"
-    make clean
-    rm -rf "${DORIS_HOME}/gensrc/build"
-    rm -rf "${DORIS_HOME}/fe/fe-common/target"
-    rm -rf "${DORIS_HOME}/fe/fe-core/target"
+    # make clean
+    # rm -rf "${DORIS_HOME}/gensrc/build"
+    # rm -rf "${DORIS_HOME}/fe/fe-common/target"
+    # rm -rf "${DORIS_HOME}/fe/fe-core/target"
     popd
 }
 
@@ -94,14 +94,14 @@ clean_be() {
     CMAKE_BUILD_TYPE="${BUILD_TYPE:-Release}"
     CMAKE_BUILD_DIR="${DORIS_HOME}/be/build_${CMAKE_BUILD_TYPE}"
 
-    rm -rf "${CMAKE_BUILD_DIR}"
-    rm -rf "${DORIS_HOME}/be/output"
+    # rm -rf "${CMAKE_BUILD_DIR}"
+    # rm -rf "${DORIS_HOME}/be/output"
     popd
 }
 
 clean_fe() {
     pushd "${DORIS_HOME}/fe"
-    "${MVN_CMD}" clean
+    # "${MVN_CMD}" clean
     popd
 }
 

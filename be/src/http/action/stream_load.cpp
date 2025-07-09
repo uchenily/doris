@@ -339,6 +339,8 @@ Status parse_http_headers(HttpRequest* http_req, std::shared_ptr<StreamLoadConte
     if (!http_req->header(HTTP_COMMENT).empty()) {
         ctx->load_comment = http_req->header(HTTP_COMMENT);
     }
+
+    return Status::OK();
 }
 } // namespace
 
@@ -434,6 +436,7 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
     request.__set_header_type(ctx->header_type);
     request.__set_loadId(ctx->id.to_thrift());
     if (ctx->use_streaming) {
+        // 文件流
         std::shared_ptr<io::StreamLoadPipe> pipe;
         if (ctx->is_chunked_transfer) {
             pipe = std::make_shared<io::StreamLoadPipe>(
@@ -449,6 +452,7 @@ Status StreamLoadAction::_process_put(HttpRequest* http_req,
         ctx->pipe = pipe;
         RETURN_IF_ERROR(_exec_env->new_load_stream_mgr()->put(ctx->id, ctx));
     } else {
+        // 本地文件
         RETURN_IF_ERROR(_data_saved_path(http_req, &request.path));
         auto file_sink = std::make_shared<MessageBodyFileSink>(request.path);
         RETURN_IF_ERROR(file_sink->open());

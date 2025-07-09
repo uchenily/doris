@@ -44,6 +44,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <latch>
 
 #include "common/status.h"
 #include "pipeline/pipeline_x/pipeline_x_fragment_context.h"
@@ -1069,14 +1070,14 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
         // 通过query_ctx 创建 pipeline fragment上下文
         std::shared_ptr<pipeline::PipelineFragmentContext> context =
                 std::make_shared<pipeline::PipelineXFragmentContext>(
-                        query_ctx->query_id(), params.fragment_id, query_ctx, _exec_env, cb,
+                        query_ctx->query_id(), pipeline_params.fragment_id, query_ctx, _exec_env, cb,
                         std::bind<Status>(
                                 std::mem_fn(&FragmentMgr::trigger_pipeline_context_report), this,
                                 std::placeholders::_1, std::placeholders::_2));
         {
             SCOPED_RAW_TIMER(&duration_ns);
             // prepare的时候会构建pipeline
-            auto prepare_st = context->prepare(params, _thread_pool.get());
+            auto prepare_st = context->prepare(pipeline_params, _thread_pool.get());
             if (!prepare_st.ok()) {
                 context->close_if_prepare_failed(prepare_st);
                 query_ctx->set_execution_dependency_ready();
@@ -1090,13 +1091,13 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
 
         std::shared_ptr<RuntimeFilterMergeControllerEntity> handler;
         RETURN_IF_ERROR(_runtimefilter_controller.add_entity(
-                params.local_params[0], params.query_id, params.query_options, &handler,
+                pipeline_params.local_params[0], pipeline_params.query_id, pipeline_params.query_options, &handler,
                 RuntimeFilterParamsContext::create(context->get_runtime_state())));
         if (handler) {
             query_ctx->set_merge_controller_handler(handler);
         }
 
-        for (const auto& local_param : params.local_params) {
+        for (const auto& local_param : pipeline_params.local_params) {
             const TUniqueId& fragment_instance_id = local_param.fragment_instance_id;
             auto iter = _pipeline_map.find(fragment_instance_id);
             if (iter != nullptr) {
@@ -1148,7 +1149,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
                     pipeline_params, local_params, query_ctx.get()); // stream load 为什么需要走这里?
             std::shared_ptr<pipeline::PipelineFragmentContext> context =
                     std::make_shared<pipeline::PipelineFragmentContext>(
-                            query_ctx->query_id(), fragment_instance_id, params.fragment_id,
+                            query_ctx->query_id(), fragment_instance_id, pipeline_params.fragment_id,
                             local_params.backend_num, query_ctx, _exec_env, cb,
                             std::bind<Status>(
                                     std::mem_fn(&FragmentMgr::trigger_pipeline_context_report),
@@ -1170,7 +1171,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
 
             std::shared_ptr<RuntimeFilterMergeControllerEntity> handler;
             RETURN_IF_ERROR(_runtimefilter_controller.add_entity(
-                    local_params, params.query_id, params.query_options, &handler,
+                    local_params, pipeline_params.query_id, pipeline_params.query_options, &handler,
                     RuntimeFilterParamsContext::create(context->get_runtime_state())));
             if (i == 0 && handler) {
                 query_ctx->set_merge_controller_handler(handler);
@@ -1211,7 +1212,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
         //     return Status::OK();
         // };
 
-        auto run_in_threadpool = [this](auto func, int parallelism) -> Status {
+        auto run_in_threadpool = [this, &query_ctx](auto func, int parallelism) -> Status {
             std::latch completion_latch(parallelism);
             // std::vector<Status> prepare_statuses(parallelism);
             Status prepare_statuses[parallelism];
