@@ -333,9 +333,12 @@ void TaskScheduler::_do_work(size_t index) {
                 std::thread::id tid = std::this_thread::get_id();
                 uint64_t thread_id = *reinterpret_cast<uint64_t*>(&tid);
                 uint64_t start_time = MonotonicMicros();
-
-                status = task->execute(&eos);
-
+                
+                // execute可能有几种情况:
+                // 1. 产生一个block, 然后给到sink节点
+                // 2. block, 没有执行, 直接返回
+                // 3. ...
+                status = task->execute(&eos); 
                 uint64_t end_time = MonotonicMicros();
                 auto state = task->get_state();
                 std::string state_name =

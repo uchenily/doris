@@ -62,6 +62,7 @@ Status AsyncResultWriter::sink(Block* block, bool eos) {
         _dependency->set_ready();
     }
     if (rows) {
+        // 将block添加到data_queue中
         _data_queue.emplace_back(std::move(add_block));
         if (_dependency && !_data_queue_is_available() && !_is_finished()) {
             _dependency->block();
@@ -79,7 +80,7 @@ Status AsyncResultWriter::sink(Block* block, bool eos) {
 std::unique_ptr<Block> AsyncResultWriter::_get_block_from_queue() {
     std::lock_guard l(_m);
     DCHECK(!_data_queue.empty());
-    auto block = std::move(_data_queue.front());
+    auto block = std::move(_data_queue.front()); // 取出block
     _data_queue.pop_front();
     if (_dependency && _data_queue_is_available()) {
         _dependency->set_ready();
@@ -150,8 +151,8 @@ void AsyncResultWriter::process_block(RuntimeState* state, RuntimeProfile* profi
         }
 
         //2) get the block from  data queue and write to downstream
-        auto block = _get_block_from_queue();
-        auto status = write(*block);
+        auto block = _get_block_from_queue(); // 从data队列中取出一个block
+        auto status = write(*block); // 写入block
         if (!status.ok()) [[unlikely]] {
             std::unique_lock l(_m);
             _writer_status.update(status);

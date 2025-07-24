@@ -507,6 +507,7 @@ Status BaseTabletsChannel::_open_all_writers(const PTabletWriterOpenRequest& req
         };
 
         // TODO(plat1ko): CloudDeltaWriter
+        // NOTE(chen): 所以下面write_func中的writer类型是DeletaWriter
         auto writer = std::make_unique<DeltaWriter>(*StorageEngine::instance(), &wrequest, _profile,
                                                     _load_id);
         {
@@ -573,14 +574,14 @@ Status BaseTabletsChannel::add_batch(const PTabletWriterAddBlockRequest& request
     _build_tablet_to_rowidxs(request, &tablet_to_rowidxs);
 
     vectorized::Block send_data;
-    RETURN_IF_ERROR(send_data.deserialize(request.block()));
+    RETURN_IF_ERROR(send_data.deserialize(request.block())); // 直到这里才真正反序列化数据.
     CHECK(send_data.rows() == request.tablet_ids_size())
             << "block rows: " << send_data.rows()
             << ", tablet_ids_size: " << request.tablet_ids_size();
 
     g_tablets_channel_send_data_allocated_size << send_data.allocated_bytes();
     Defer defer {
-            [&]() { g_tablets_channel_send_data_allocated_size << -send_data.allocated_bytes(); }};
+            [&]() { g_tablets_channel_send_data_allocated_size << -send_data.allocated_bytes(); }}; // 为什么又要减掉?
 
     auto write_tablet_data = [&](int64_t tablet_id,
                                  std::function<Status(BaseDeltaWriter * writer)> write_func) {
@@ -592,13 +593,13 @@ Status BaseTabletsChannel::add_batch(const PTabletWriterAddBlockRequest& request
         decltype(_tablet_writers.find(tablet_id)) tablet_writer_it;
         {
             std::lock_guard<SpinLock> l(_tablet_writers_lock);
-            tablet_writer_it = _tablet_writers.find(tablet_id);
+            tablet_writer_it = _tablet_writers.find(tablet_id); // 根据tablet_id找到对应的DeltaWriter
             if (tablet_writer_it == _tablet_writers.end()) {
                 return Status::InternalError("unknown tablet to append data, tablet={}", tablet_id);
             }
         }
 
-        Status st = write_func(tablet_writer_it->second.get());
+        Status st = write_func(tablet_writer_it->second.get()); // writer->write(...)
         if (!st.ok()) {
             auto err_msg =
                     fmt::format("tablet writer write failed, tablet_id={}, txn_id={}, err={}",

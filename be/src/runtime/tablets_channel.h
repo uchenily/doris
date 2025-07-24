@@ -164,7 +164,7 @@ protected:
     Status _close_status;
 
     // tablet_id -> TabletChannel. it will only be changed in open() or inc_open()
-    std::unordered_map<int64_t, std::unique_ptr<BaseDeltaWriter>> _tablet_writers;
+    std::unordered_map<int64_t, std::unique_ptr<BaseDeltaWriter>> _tablet_writers; // tablet_writers map 保存类每一个tablet_id 到 TabletChannel 的映射
     // protect _tablet_writers
     SpinLock _tablet_writers_lock;
     // broken tablet ids.

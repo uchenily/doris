@@ -99,7 +99,7 @@ private:
     std::unique_ptr<ThreadPool> _fix_thread_pool;
     std::shared_ptr<TaskQueue> _task_queue;
     std::vector<std::unique_ptr<std::atomic<bool>>> _markers;
-    std::shared_ptr<BlockedTaskScheduler> _blocked_task_scheduler;
+    std::shared_ptr<BlockedTaskScheduler> _blocked_task_scheduler; // TaskScheduler 内部还有一个 BlockedTaskScheduler, 用于执行一些阻塞操作
     std::atomic<bool> _shutdown;
     std::string _name;
     std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;

@@ -1212,7 +1212,7 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& pipeline_p
         //     return Status::OK();
         // };
 
-        auto run_in_threadpool = [this, &query_ctx](auto func, int parallelism) -> Status {
+        auto run_in_threadpool = [&](auto func, int parallelism) -> Status {
             std::latch completion_latch(parallelism);
             // std::vector<Status> prepare_statuses(parallelism);
             Status prepare_statuses[parallelism];

@@ -258,6 +258,8 @@ Status PipelineTask::execute(bool* eos) {
             // if not ok and no dependency, return error to cancel.
             RETURN_IF_ERROR(_open_status);
         }
+
+        // 如果存在阻塞原因, 比如依赖还没满足, 或者source没有数据, 或者wink已满没法写数据, 则 execute() 直接返回. 等待下一次调度. (什么时候更新PipelineTask状态至non-block的? 什么时候重新添加到队列的?)
         if (has_dependency()) {
             set_state(PipelineTaskState::BLOCKED_FOR_DEPENDENCY);
             return Status::OK();
@@ -281,7 +283,7 @@ Status PipelineTask::execute(bool* eos) {
             _task_profile->add_info_string("TaskState", "BlockedBySource");
             break;
         }
-        if (!sink_can_write()) {
+        if (!sink_can_write()) { // 检查数据接收器是否已满
             set_state(PipelineTaskState::BLOCKED_FOR_SINK);
             _task_profile->add_info_string("TaskState", "BlockedBySink");
             break;
@@ -300,13 +302,13 @@ Status PipelineTask::execute(bool* eos) {
         {
             SCOPED_TIMER(_get_block_timer);
             _get_block_counter->update(1);
-            RETURN_IF_ERROR(_root->get_block(_state, block, _data_state));
+            RETURN_IF_ERROR(_root->get_block(_state, block, _data_state)); // 获取一个数据块(从child获取, operator链), 这里还是pull-based模型!
         }
         *eos = _data_state == SourceState::FINISHED;
 
         if (_block->rows() != 0 || *eos) {
             SCOPED_TIMER(_sink_timer);
-            status = _sink->sink(_state, block, _data_state);
+            status = _sink->sink(_state, block, _data_state); // 将数据发送到数据接收器
             if (!status.is<ErrorCode::END_OF_FILE>()) {
                 RETURN_IF_ERROR(status);
             }

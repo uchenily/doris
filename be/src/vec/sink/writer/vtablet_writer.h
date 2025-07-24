@@ -536,6 +536,7 @@ private:
 
 namespace doris::vectorized {
 //
+// TODO(chen): 疑问, 和VFileResultWriter有什么区别?
 // write result to file
 class VTabletWriter final : public AsyncResultWriter {
 public:

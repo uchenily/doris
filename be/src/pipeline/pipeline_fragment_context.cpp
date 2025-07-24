@@ -356,6 +356,9 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
 
     if (request.fragment.__isset.output_sink) {
         // Here we build a DataSink object, which will be hold by DataSinkOperator
+        // 创建DataSink对象, 后面创建的DataSinkOperator对象会持有DataSink, 并且在sink过程中会执行DataSink的sink方法 `DataSinkOperator::sink#_sink->sink`
+        // 因此看sink节点的写入一个block的过程, 主要关注这里DataSink对象的sink方法即可. (vectorized::VOlapTableSink / vectorized::VOlapTableSinkV2)
+        // 引出一个疑问: 为什么要弄出DataSink/DataSinkOperator两个概念?
         RETURN_IF_ERROR_OR_CATCH_EXCEPTION(DataSink::create_data_sink(
                 _runtime_state->obj_pool(), request.fragment.output_sink,
                 request.fragment.output_exprs, request, idx, _root_plan->row_desc(),
@@ -400,7 +403,7 @@ Status PipelineFragmentContext::_build_pipeline_tasks(
         auto task =
                 std::make_unique<PipelineTask>(pipeline, _total_tasks++, _runtime_state.get(),
                                                sink_operator, this, pipeline->pipeline_profile());
-        RETURN_IF_ERROR(sink_operator->set_child(task->get_root()));
+        RETURN_IF_ERROR(sink_operator->set_child(task->get_root())); // sink节点添加child, 与task(或者说当前pipeline其他的算子)关联起来, 这里也可以看出来, sink节点处理会特殊一些, 不和其他的operators放在一块
         _tasks.emplace_back(std::move(task));
         _runtime_profile->add_child(pipeline->pipeline_profile(), true, nullptr);
     }
@@ -490,6 +493,7 @@ void PipelineFragmentContext::trigger_report_if_necessary() {
 }
 
 // TODO: use virtual function to do abstruct
+// NOTE(chen): 仔细梳理一遍构建pipeline的逻辑
 Status PipelineFragmentContext::_build_pipelines(ExecNode* node, PipelinePtr cur_pipe) {
     auto node_type = node->type();
     switch (node_type) {
@@ -677,15 +681,17 @@ Status PipelineFragmentContext::_build_pipelines(ExecNode* node, PipelinePtr cur
             RETURN_IF_ERROR(new_pipe->add_operator(builder));
         }
         OperatorBuilderPtr join_sink =
-                std::make_shared<HashJoinBuildSinkBuilder>(node->id(), join_node);
+                std::make_shared<HashJoinBuildSinkBuilder>(node->id(), join_node);    // new_pipe 在build端(右侧), 添加sink节点
         RETURN_IF_ERROR(new_pipe->set_sink_builder(join_sink));
 
         RETURN_IF_ERROR(_build_pipelines(node->child(0), cur_pipe));
         OperatorBuilderPtr join_source =
-                std::make_shared<HashJoinProbeOperatorBuilder>(node->id(), join_node);
+                std::make_shared<HashJoinProbeOperatorBuilder>(node->id(), join_node); // cur_pipe 所在所在的一端为 probe端, 添加source节点
+
+        // join_sink/join_source 两个节点根据join_node关联起来
         RETURN_IF_ERROR(cur_pipe->add_operator(join_source));
 
-        cur_pipe->add_dependency(new_pipe);
+        cur_pipe->add_dependency(new_pipe); // 将build端 作为 probe端的依赖
         break;
     }
     case TPlanNodeType::CROSS_JOIN_NODE: {
@@ -836,7 +842,7 @@ Status PipelineFragmentContext::_create_sink(int sender_id, const TDataSink& thr
         break;
     }
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
-    case TDataSinkType::OLAP_TABLE_SINK: {
+    case TDataSinkType::OLAP_TABLE_SINK: { // 一般是创建OlapTableSink (比如 stream_load)
         DCHECK(thrift_sink.__isset.olap_table_sink);
         if (state->query_options().enable_memtable_on_sink_node &&
             !_has_inverted_index_or_partial_update(thrift_sink.olap_table_sink)) {
@@ -927,6 +933,7 @@ Status PipelineFragmentContext::_create_sink(int sender_id, const TDataSink& thr
     default:
         return Status::InternalError("Unsuported sink type in pipeline: {}", thrift_sink.type);
     }
+    // 将sink节点关联到pipeline中
     return _root_pipeline->set_sink_builder(sink_);
 }
 

@@ -321,13 +321,13 @@ Status ExecEnv::init_pipeline_task_scheduler() {
     // TODO pipeline workload group combie two blocked schedulers.
     auto t_queue = std::make_shared<pipeline::MultiCoreTaskQueue>(executors_size);
     _without_group_block_scheduler =
-            std::make_shared<pipeline::BlockedTaskScheduler>("PipeNoGSchePool");
+            std::make_shared<pipeline::BlockedTaskScheduler>("PipeNoGSchePool"); // pipeline no gorup scheduler
     _without_group_task_scheduler = new pipeline::TaskScheduler(
             this, _without_group_block_scheduler, t_queue, "PipeNoGSchePool", nullptr);
     RETURN_IF_ERROR(_without_group_task_scheduler->start());
     RETURN_IF_ERROR(_without_group_block_scheduler->start());
 
-    _global_block_scheduler = std::make_shared<pipeline::BlockedTaskScheduler>("PipeGBlockSche");
+    _global_block_scheduler = std::make_shared<pipeline::BlockedTaskScheduler>("PipeGBlockSche"); // pipeline group block scheduler
     RETURN_IF_ERROR(_global_block_scheduler->start());
     _runtime_filter_timer_queue = new doris::pipeline::RuntimeFilterTimerQueue();
     _runtime_filter_timer_queue->run();

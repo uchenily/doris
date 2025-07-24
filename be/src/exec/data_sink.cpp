@@ -318,10 +318,11 @@ Status DataSink::create_data_sink(ObjectPool* pool, const TDataSink& thrift_sink
         break;
     }
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
-    case TDataSinkType::OLAP_TABLE_SINK: {
+    case TDataSinkType::OLAP_TABLE_SINK: { // 一般是OlapTableSink
         DCHECK(thrift_sink.__isset.olap_table_sink);
         if (state->query_options().enable_memtable_on_sink_node &&
             !_has_inverted_index_or_partial_update(thrift_sink.olap_table_sink)) {
+            // 启用了memtable_on_sink_node，并且没有inverted index和partial update，则使用VOlapTableSinkV2
             sink->reset(new vectorized::VOlapTableSinkV2(pool, row_desc, output_exprs));
         } else {
             sink->reset(new vectorized::VOlapTableSink(pool, row_desc, output_exprs));

@@ -540,7 +540,7 @@ Status VNodeChannel::add_block(vectorized::Block* block, const Payload* payload)
             // Copy the request to tmp request to add to pend block queue
             auto tmp_add_block_request = std::make_shared<PTabletWriterAddBlockRequest>();
             *tmp_add_block_request = *_cur_add_block_request;
-            _pending_blocks.emplace(std::move(_cur_mutable_block), tmp_add_block_request);
+            _pending_blocks.emplace(std::move(_cur_mutable_block), tmp_add_block_request); // 加入到pending blocks队列
             _pending_batches_num++;
             VLOG_DEBUG << "VTabletWriter:" << _parent << " VNodeChannel:" << this
                        << " pending_batches_bytes:" << _pending_batches_bytes
@@ -605,7 +605,7 @@ void VNodeChannel::try_send_pending_block(RuntimeState* state) {
     {
         std::lock_guard<std::mutex> l(_pending_batches_lock);
         DCHECK(!_pending_blocks.empty());
-        send_block = std::move(_pending_blocks.front());
+        send_block = std::move(_pending_blocks.front()); // 从pending blocks队列取出, 放到send_block
         _pending_blocks.pop();
         _pending_batches_num--;
         _pending_batches_bytes -= send_block.first->allocated_bytes();
@@ -623,6 +623,7 @@ void VNodeChannel::try_send_pending_block(RuntimeState* state) {
     if (block.rows() > 0) {
         SCOPED_ATOMIC_TIMER(&_serialize_batch_ns);
         size_t uncompressed_bytes = 0, compressed_bytes = 0;
+        // block序列化
         Status st = block.serialize(state->be_exec_version(), request->mutable_block(),
                                     &uncompressed_bytes, &compressed_bytes,
                                     state->fragement_transmission_compression_type(),
@@ -741,6 +742,7 @@ void VNodeChannel::try_send_pending_block(RuntimeState* state) {
     } else {
         _send_block_callback->cntl_->http_request().Clear();
         {
+            // rpc方法 tablet_writer_add_block -> Executor BE (internal service PInternalServiceImpl::tablet_writer_add_block)
             _stub->tablet_writer_add_block(
                     send_block_closure->cntl_.get(), send_block_closure->request_.get(),
                     send_block_closure->response_.get(), send_block_closure.get());
@@ -1742,11 +1744,12 @@ Status VTabletWriter::write(doris::vectorized::Block& input_block) {
     _row_distribution_watch.stop();
 
     // Add block to node channel
+    // TODO(chen): 这里的_channels应该是index channel, 将block添加到IndexChannel, IndexChannel是啥? NodeChannel又是啥?
     for (size_t i = 0; i < _channels.size(); i++) {
         for (const auto& entry : channel_to_payload[i]) {
             // if this node channel is already failed, this add_row will be skipped
             // entry.second is a [row -> tablet] mapping
-            auto st = entry.first->add_block(block.get(), &entry.second);
+            auto st = entry.first->add_block(block.get(), &entry.second); // 往nodechannel添加block
             if (!st.ok()) {
                 _channels[i]->mark_as_failed(entry.first, st.to_string());
             }
