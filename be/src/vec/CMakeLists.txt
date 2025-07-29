@@ -30,3 +30,6 @@ add_library(Vec STATIC
 )
 
 pch_reuse(Vec)
+
+add_executable(my_test ${CMAKE_CURRENT_SOURCE_DIR}/exec/my_test.cpp)
+target_link_libraries(my_test PRIVATE ${DORIS_LINK_LIBS})
