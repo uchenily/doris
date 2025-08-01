@@ -93,7 +93,7 @@ public:
     // eg, for file scanner, return the current file path.
     virtual std::string get_current_scan_range_name() { return "not implemented"; }
 
-protected:
+// protected:
     // Subclass should implement this to return data.
     virtual Status _get_block_impl(RuntimeState* state, Block* block, bool* eof) = 0;
 
@@ -172,7 +172,7 @@ public:
 
     int64_t limit() const { return _limit; }
 
-protected:
+// protected:
     void _discard_conjuncts() {
         for (auto& conjunct : _conjuncts) {
             _stale_expr_ctxs.emplace_back(conjunct);

@@ -101,7 +101,7 @@ public:
     Status notify_relay_wal(int64_t wal_id);
     static std::string get_base_wal_path(const std::string& wal_path_str);
 
-private:
+// private:
     // wal back pressure
     Status _init_wal_dirs_conf();
     Status _init_wal_dirs();
@@ -116,11 +116,11 @@ private:
     Status _load_wals();
     void _stop_relay_wal();
 
-public:
+// public:
     // used for be ut
     size_t wal_limit_test_bytes;
 
-private:
+// private:
     ExecEnv* _exec_env = nullptr;
     std::atomic<bool> _stop;
     CountDownLatch _stop_background_threads_latch;

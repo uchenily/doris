@@ -85,7 +85,7 @@ public:
 
     std::string get_current_scan_range_name() override { return _current_range_path; }
 
-protected:
+// protected:
     Status _get_block_impl(RuntimeState* state, Block* block, bool* eof) override;
 
     Status _get_block_wrapped(RuntimeState* state, Block* block, bool* eof);
@@ -99,7 +99,7 @@ protected:
 
     void _update_bytes_and_rows_read() override;
 
-protected:
+// protected:
     const TFileScanRangeParams* _params = nullptr;
     std::shared_ptr<vectorized::SplitSourceConnector> _split_source;
     bool _first_scan_range = false;
@@ -175,7 +175,7 @@ protected:
             _partition_col_descs;
     std::unordered_map<std::string, VExprContextSPtr> _missing_col_descs;
 
-private:
+// private:
     RuntimeProfile::Counter* _get_block_timer = nullptr;
     RuntimeProfile::Counter* _open_reader_timer = nullptr;
     RuntimeProfile::Counter* _cast_to_input_block_timer = nullptr;
@@ -203,7 +203,7 @@ private:
     // otherwise, point to _output_tuple_desc
     const TupleDescriptor* _real_tuple_desc = nullptr;
 
-private:
+// private:
     Status _init_expr_ctxes();
     Status _init_src_block(Block* block);
     Status _check_output_block_types();

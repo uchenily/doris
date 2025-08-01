@@ -207,7 +207,7 @@ public:
         return get_next(state, block, eos);
     }
 
-protected:
+// protected:
     // Different data sources register different profiles by implementing this method
     virtual Status _init_profile();
 

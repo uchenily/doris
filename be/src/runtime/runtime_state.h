@@ -710,7 +710,7 @@ public:
         return _partial_update_auto_inc_column;
     };
 
-private:
+// private:
     Status create_error_log_file();
 
     static const int DEFAULT_BATCH_SIZE = 4062;

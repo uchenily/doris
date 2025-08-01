@@ -33,3 +33,6 @@ pch_reuse(Vec)
 
 # add_executable(my_test ${CMAKE_CURRENT_SOURCE_DIR}/my_test.cpp)
 # target_link_libraries(my_test PRIVATE ${DORIS_LINK_LIBS})
+
+# add_executable(my_test ${CMAKE_CURRENT_SOURCE_DIR}/../../test/vec/exec/vwal_scanner_main_test.cpp)
+# target_link_libraries(my_test PRIVATE ${DORIS_LINK_LIBS})
