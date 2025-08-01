@@ -1,31 +1,32 @@
-#include <gtest/gtest.h>
+#define BE_TEST 1
 
+#include <assert.h>
+
+#include <filesystem>
+#include <iostream>
 #include <string>
 #include <vector>
 
+#include "common/config.h"
 #include "common/object_pool.h"
-#include "common/sync_point.h"
+#include "exec/exec_node.h"
 #include "gen_cpp/Descriptors_types.h"
 #include "gen_cpp/PlanNodes_types.h"
+#include "io/fs/file_writer.h"
 #include "io/fs/local_file_system.h"
-#include "olap/wal/wal_manager.h"
 #include "runtime/descriptors.h"
-#include "runtime/memory/mem_tracker.h"
+// #include "runtime/mem/mem_tracker.h"
 #include "runtime/runtime_state.h"
-#include "runtime/user_function_cache.h"
+#include "util/disk_info.h"
+#include "vec/core/block.h"
 #include "vec/exec/scan/new_file_scan_node.h"
 #include "vec/exec/scan/vfile_scanner.h"
+#include "vec/exec/scan/split_source_connector.h"
 
-namespace doris {
+namespace doris::vectorized {
 
-namespace vectorized {
-
+// A mock SplitSourceConnector to provide file scan ranges.
 class TestSplitSourceConnector : public SplitSourceConnector {
-private:
-    std::mutex _range_lock;
-    TFileScanRange _scan_range;
-    int _range_index = 0;
-
 public:
     TestSplitSourceConnector(const TFileScanRange& scan_range) : _scan_range(scan_range) {}
 
@@ -41,307 +42,257 @@ public:
     }
 
     int num_scan_ranges() override { return _scan_range.ranges.size(); }
-
     TFileScanRangeParams* get_params() override { return &_scan_range.params; }
-};
-
-class VWalScannerTest : public testing::Test {
-public:
-    VWalScannerTest() : _runtime_state(TQueryGlobals()) {
-        init();
-        _profile = _runtime_state.runtime_profile();
-        WARN_IF_ERROR(_runtime_state.init(_unique_id, _query_options, _query_globals, _env),
-                      "fail to init _runtime_state");
-    }
-    void init();
-    void generate_scanner(std::shared_ptr<VFileScanner>& scanner);
-
-    void TearDown() override {
-        WARN_IF_ERROR(_scan_node->close(&_runtime_state), "fail to close scan_node")
-        WARN_IF_ERROR(io::global_local_filesystem()->delete_directory(_wal_dir),
-                      fmt::format("fail to delete dir={}", _wal_dir));
-        SAFE_STOP(_env->_wal_manager);
-    }
-
-protected:
-    virtual void SetUp() override {}
 
 private:
-    void _init_desc_table();
-
-    ExecEnv* _env = nullptr;
-    std::string _wal_dir = std::string(getenv("DORIS_HOME")) + "/wal_test";
-    int64_t _db_id = 1;
-    int64_t _tb_id = 2;
-    int64_t _txn_id_1 = 123;
-    int64_t _txn_id_2 = 456;
-    uint32_t _version_0 = 0;
-    uint32_t _version_1 = 1;
-    int64_t _backend_id = 1001;
-    std::string _label_1 = "test1";
-    std::string _label_2 = "test2";
-
-    TupleId _dst_tuple_id = 0;
-    RuntimeState _runtime_state;
-    RuntimeProfile* _profile;
-    ObjectPool _obj_pool;
-    DescriptorTbl* _desc_tbl;
-    std::vector<TNetworkAddress> _addresses;
-    ScannerCounter _counter;
-    std::vector<TExpr> _pre_filter;
-    TPlanNode _tnode;
-    TUniqueId _unique_id;
-    TQueryOptions _query_options;
-    TQueryGlobals _query_globals;
-    std::shared_ptr<NewFileScanNode> _scan_node = nullptr;
-    std::vector<TFileRangeDesc> _ranges;
-    TFileRangeDesc _range_desc;
+    std::mutex _range_lock;
     TFileScanRange _scan_range;
-    std::unique_ptr<ShardedKVCache> _kv_cache = nullptr;
-    std::unique_ptr<TMasterInfo> _master_info = nullptr;
+    int _range_index = 0;
 };
 
-void VWalScannerTest::_init_desc_table() {
-    TDescriptorTable t_desc_table;
+class FileScanNodeTest {
+public:
+    FileScanNodeTest() : _runtime_state(TQueryGlobals()) {
+        // Basic setup
+        _env = ExecEnv::GetInstance();
+        _test_dir = "/tmp/file_scan_node_test_" + std::to_string(time(nullptr));
+    }
 
-    // table descriptors
-    TTableDescriptor t_table_desc;
+    ~FileScanNodeTest() {
+        if (std::filesystem::exists(_test_dir)) {
+            std::filesystem::remove_all(_test_dir);
+        }
+    }
 
-    t_table_desc.id = 0;
-    t_table_desc.tableType = TTableType::OLAP_TABLE;
-    t_table_desc.numCols = 0;
-    t_table_desc.numClusteringCols = 0;
-    t_desc_table.tableDescriptors.push_back(t_table_desc);
-    t_desc_table.__isset.tableDescriptors = true;
+    void setup() {
+        // 1. Create test directory and a CSV file
+        std::filesystem::create_directory(_test_dir);
+        _test_file_path = _test_dir + "/test.csv";
+        io::FileWriterPtr file_writer;
+        auto st = io::global_local_filesystem()->create_file(_test_file_path, &file_writer);
+        assert(st.ok());
 
-    int next_slot_id = 1;
-    // TSlotDescriptor
-    // int offset = 1;
-    // int i = 0;
-    // c1
-    {
-        TSlotDescriptor slot_desc;
+        // Write 3x3 CSV data
+        const char* csv_data = R"("col1_row1","col2_row1","col3_row1"
+                               ""col1_row2","col2_row2","col3_row2"
+                               ""col1_row3","col2_row3","col3_row3")";
+        st = file_writer->append(csv_data);
+        assert(st.ok());
+        st = file_writer->close();
+        assert(st.ok());
 
-        slot_desc.id = next_slot_id++;
-        slot_desc.parent = 0;
-        TTypeDesc type;
-        {
+        // 2. Initialize RuntimeState and DescriptorTbl
+        init_desc_table();
+        st = _runtime_state.init(_unique_id, _query_options, _query_globals, _env);
+        assert(st.ok());
+        _runtime_state.set_desc_tbl(_desc_tbl);
+
+        // 3. Configure the FileScanNode
+        _tnode.node_id = 0;
+        _tnode.node_type = TPlanNodeType::FILE_SCAN_NODE;
+        _tnode.num_children = 0;
+        _tnode.limit = -1;
+        _tnode.row_tuples.push_back(0);
+        _tnode.nullable_tuples.push_back(false);
+        _tnode.file_scan_node.tuple_id = 0;
+        _tnode.__isset.file_scan_node = true;
+
+        _scan_node = std::make_unique<NewFileScanNode>(&_obj_pool, _tnode, *_desc_tbl);
+
+        // 4. Set up the scan range to point to our CSV file
+        TFileRangeDesc range_desc;
+        range_desc.path = _test_file_path;
+        range_desc.start_offset = 0;
+        range_desc.size = std::filesystem::file_size(_test_file_path);
+
+        _scan_range.ranges.push_back(range_desc);
+        _scan_range.params.format_type = TFileFormatType::FORMAT_CSV_PLAIN;
+        // _scan_range.params.column_separator = ",";
+        // _scan_range.params.row_delimiter = "\n";
+        _scan_range.__isset.params = true;
+
+        // 5. Prepare the scan node
+        st = _scan_node->init(_tnode, &_runtime_state);
+        assert(st.ok());
+        st = _scan_node->prepare(&_runtime_state);
+        assert(st.ok());
+
+        auto _kv_cache = std::make_shared<ShardedKVCache>(48);
+        auto _profile = _runtime_state.runtime_profile();
+
+        auto split_source = std::make_shared<TestSplitSourceConnector>(_scan_range);
+        // _scan_node->set_split_source(split_source.get());
+        auto scanner = std::make_shared<VFileScanner>(&_runtime_state, _scan_node.get(), -1, split_source,
+                                                 _profile, _kv_cache.get());
+        // scanner->_is_load = false;
+        vectorized::VExprContextSPtrs _conjuncts;
+        std::unordered_map<std::string, ColumnValueRangeType> _colname_to_value_range;
+        std::unordered_map<std::string, int> _colname_to_slot_id;
+        WARN_IF_ERROR(scanner->prepare(_conjuncts, &_colname_to_value_range, &_colname_to_slot_id),
+                      "fail to prepare scanner");
+        
+// -void VWalScannerTest::generate_scanner(std::shared_ptr<VFileScanner>& scanner) {
+// -    auto split_source = std::make_shared<TestSplitSourceConnector>(_scan_range);
+// -    scanner = std::make_shared<VFileScanner>(&_runtime_state, _scan_node.get(), -1, split_source,
+// -                                             _profile, _kv_cache.get());
+// -    scanner->_is_load = false;
+// -    vectorized::VExprContextSPtrs _conjuncts;
+// -    std::unordered_map<std::string, ColumnValueRangeType> _colname_to_value_range;
+// -    std::unordered_map<std::string, int> _colname_to_slot_id;
+// -    WARN_IF_ERROR(scanner->prepare(_conjuncts, &_colname_to_value_range, &_colname_to_slot_id),
+// -                  "fail to prepare scanner");
+// -}
+
+    }
+
+    void run_test() {
+        std::cout << "--- Starting FileScanNode Test ---" << std::endl;
+        setup();
+
+        // Open the scanner
+        auto st = _scan_node->open(&_runtime_state);
+        assert(st.ok());
+
+        // Get data blocks
+        Block block;
+        bool eof = false;
+        int total_rows = 0;
+
+        while (!eof) {
+            st = _scan_node->get_next(&_runtime_state, &block, &eof);
+            assert(st.ok());
+            if (block.rows() > 0) {
+                std::cout << "Read " << block.rows() << " rows." << std::endl;
+                total_rows += block.rows();
+                // Optional: print block structure and content for debugging
+                // std::cout << block.dump_structure() << std::endl;
+            }
+            block.clear();
+        }
+
+        // Verify results
+        std::cout << "Total rows read: " << total_rows << std::endl;
+        assert(total_rows == 3);
+        std::cout << "Assertion PASSED: Expected 3 rows, got " << total_rows << "." << std::endl;
+
+        // Close the scanner
+        std::ignore = _scan_node->close(&_runtime_state);
+        std::cout << "--- Test Finished ---" << std::endl;
+    }
+
+private:
+    void init_desc_table() {
+        TDescriptorTable t_desc_table;
+        // Table descriptor
+        TTableDescriptor t_table_desc;
+        t_table_desc.id = 0;
+        t_table_desc.tableType = TTableType::BROKER_TABLE; // Use BROKER_TABLE for file scans
+        t_table_desc.numCols = 3;
+        t_table_desc.numClusteringCols = 0;
+        t_desc_table.tableDescriptors.push_back(t_table_desc);
+
+        // Slot descriptors (c1, c2, c3)
+        for (int i = 0; i < 3; ++i) {
+            TSlotDescriptor slot_desc;
+            slot_desc.id = i;
+            slot_desc.parent = 0;
+            TTypeDesc type;
             TTypeNode node;
             node.__set_type(TTypeNodeType::SCALAR);
             TScalarType scalar_type;
             scalar_type.__set_type(TPrimitiveType::VARCHAR);
-            scalar_type.__set_len(32);
+            scalar_type.__set_len(100);
             node.__set_scalar_type(scalar_type);
             type.types.push_back(node);
+            slot_desc.slotType = type;
+            slot_desc.columnPos = i;
+            slot_desc.byteOffset = i * sizeof(StringRef);
+            slot_desc.nullIndicatorByte = 0;
+            slot_desc.nullIndicatorBit = -1;
+            slot_desc.colName = "c" + std::to_string(i + 1);
+            slot_desc.slotIdx = i + 1;
+            slot_desc.isMaterialized = true;
+            t_desc_table.slotDescriptors.push_back(slot_desc);
         }
-        slot_desc.slotType = type;
-        slot_desc.columnPos = 0;
-        slot_desc.byteOffset = 0;
-        slot_desc.nullIndicatorByte = 0;
-        slot_desc.nullIndicatorBit = -1;
-        slot_desc.colName = "c1";
-        slot_desc.slotIdx = 1;
-        slot_desc.col_unique_id = 0;
-        slot_desc.isMaterialized = true;
+        t_desc_table.__isset.slotDescriptors = true;
 
-        t_desc_table.slotDescriptors.push_back(slot_desc);
-    }
-    // c2
-    {
-        TSlotDescriptor slot_desc;
-
-        slot_desc.id = next_slot_id++;
-        slot_desc.parent = 0;
-        TTypeDesc type;
-        {
-            TTypeNode node;
-            node.__set_type(TTypeNodeType::SCALAR);
-            TScalarType scalar_type;
-            scalar_type.__set_type(TPrimitiveType::VARCHAR);
-            scalar_type.__set_len(32);
-            node.__set_scalar_type(scalar_type);
-            type.types.push_back(node);
-        }
-        slot_desc.slotType = type;
-        slot_desc.columnPos = 1;
-        slot_desc.byteOffset = 4;
-        slot_desc.nullIndicatorByte = 0;
-        slot_desc.nullIndicatorBit = -1;
-        slot_desc.colName = "c2";
-        slot_desc.slotIdx = 2;
-        slot_desc.col_unique_id = 1;
-        slot_desc.isMaterialized = true;
-
-        t_desc_table.slotDescriptors.push_back(slot_desc);
-    }
-    // c3
-    {
-        TSlotDescriptor slot_desc;
-
-        slot_desc.id = next_slot_id++;
-        slot_desc.parent = 0;
-        TTypeDesc type;
-        {
-            TTypeNode node;
-            node.__set_type(TTypeNodeType::SCALAR);
-            TScalarType scalar_type;
-            scalar_type.__set_type(TPrimitiveType::VARCHAR);
-            scalar_type.__set_len(32);
-            node.__set_scalar_type(scalar_type);
-            type.types.push_back(node);
-        }
-        slot_desc.slotType = type;
-        slot_desc.columnPos = 2;
-        slot_desc.byteOffset = 8;
-        slot_desc.nullIndicatorByte = 0;
-        slot_desc.nullIndicatorBit = -1;
-        slot_desc.colName = "c3";
-        slot_desc.slotIdx = 3;
-        slot_desc.col_unique_id = 2;
-        slot_desc.isMaterialized = true;
-
-        t_desc_table.slotDescriptors.push_back(slot_desc);
-    }
-
-    t_desc_table.__isset.slotDescriptors = true;
-    {
-        // TTupleDescriptor dest
+        // Tuple descriptor
         TTupleDescriptor t_tuple_desc;
         t_tuple_desc.id = 0;
-        t_tuple_desc.byteSize = 12;
+        t_tuple_desc.byteSize = 3 * sizeof(StringRef);
         t_tuple_desc.numNullBytes = 0;
         t_tuple_desc.tableId = 0;
         t_tuple_desc.__isset.tableId = true;
         t_desc_table.tupleDescriptors.push_back(t_tuple_desc);
+
+        auto st = DescriptorTbl::create(&_obj_pool, t_desc_table, &_desc_tbl);
+        assert(st.ok());
     }
 
-    auto st = DescriptorTbl::create(&_obj_pool, t_desc_table, &_desc_tbl);
+    ExecEnv* _env = nullptr;
+    ObjectPool _obj_pool;
+    RuntimeState _runtime_state;
+    DescriptorTbl* _desc_tbl = nullptr;
+    TPlanNode _tnode;
+    TUniqueId _unique_id;
+    TQueryOptions _query_options;
+    TQueryGlobals _query_globals;
+    TFileScanRange _scan_range;
 
-    _runtime_state.set_desc_tbl(_desc_tbl);
+    std::string _test_dir;
+    std::string _test_file_path;
+    std::unique_ptr<NewFileScanNode> _scan_node;
+};
+
+} // namespace doris::vectorized
+
+int main(int argc, char** argv) {
+    // A minimal ExecEnv setup
+    // doris::ExecEnv exec_env;
+    // doris::config::mem_limit = "80%";
+    // doris::config::send_batch_thread_pool_thread_num = 2;
+    // doris::config::send_batch_thread_pool_queue_size = 10;
+
+    string conffile = string(getenv("DORIS_HOME")) + "/conf/be.conf";
+    if (!doris::config::init(conffile.c_str(), true, true, true)) {
+        fprintf(stderr, "error read config file. \n");
+        return -1;
+    }
+
+    std::vector<doris::StorePath> paths;
+    auto olap_res = doris::parse_conf_store_paths(doris::config::storage_root_path, &paths);
+    if (!olap_res) {
+        // LOG(ERROR) << "parse config storage path failed, path=" << doris::config::storage_root_path;
+        // exit(-1);
+        return -1;
+    }
+
+    // Doris own signal handler must be register after jvm is init.
+    // Or our own sig-handler for SIGINT & SIGTERM will not be chained ...
+    // https://www.oracle.com/java/technologies/javase/signals.html
+    // doris::init_signals();
+
+    // ATTN: MUST init before `ExecEnv`, `StorageEngine` and other daemon services
+    //
+    //       Daemon ───┬──► StorageEngine ──► ExecEnv ──► Disk/Mem/CpuInfo
+    //                 │
+    //                 │
+    // BackendService ─┘
+    doris::CpuInfo::init();
+    doris::DiskInfo::init();
+    doris::MemInfo::init();
+
+    doris::ThreadLocalHandle::create_thread_local_if_not_exits();
+
+    // doris::ExecEnv::init_mem_tracker();
+    std::ignore = doris::ExecEnv::init(doris::ExecEnv::GetInstance(), paths, {}, {});
+    // doris::ExecEnv::set_tracking_memory(true);
+    // doris::Status st = exec_env.init({}, false);
+    // assert(st.ok());
+
+    // Run the test
+    doris::vectorized::FileScanNodeTest test;
+    test.run_test();
+
+    return 0;
 }
-
-void VWalScannerTest::init() {
-    config::group_commit_wal_max_disk_limit = "100M";
-    _init_desc_table();
-    WARN_IF_ERROR(io::global_local_filesystem()->create_directory(
-                          _wal_dir + "/" + std::to_string(_db_id) + "/" + std::to_string(_tb_id)),
-                  "fail to creat directory");
-
-    // Node Id
-    _tnode.node_id = 0;
-    _tnode.node_type = TPlanNodeType::FILE_SCAN_NODE;
-    _tnode.num_children = 0;
-    _tnode.limit = -1;
-    _tnode.row_tuples.push_back(0);
-    _tnode.nullable_tuples.push_back(false);
-    _tnode.file_scan_node.tuple_id = 0;
-    _tnode.__isset.file_scan_node = true;
-
-    _scan_node = std::make_shared<NewFileScanNode>(&_obj_pool, _tnode, *_desc_tbl);
-    _scan_node->_output_tuple_desc = _runtime_state.desc_tbl().get_tuple_descriptor(_dst_tuple_id);
-    WARN_IF_ERROR(_scan_node->init(_tnode, &_runtime_state), "fail to init scan_node");
-    WARN_IF_ERROR(_scan_node->prepare(&_runtime_state), "fail to prepare scan_node");
-
-    _range_desc.start_offset = 0;
-    _range_desc.size = 1000;
-    _ranges.push_back(_range_desc);
-    _scan_range.ranges = _ranges;
-    _scan_range.__isset.params = true;
-    _scan_range.params.format_type = TFileFormatType::FORMAT_WAL;
-    _kv_cache.reset(new ShardedKVCache(48));
-
-    _master_info.reset(new TMasterInfo());
-    _env = ExecEnv::GetInstance();
-    _env->_master_info = _master_info.get();
-    _env->_master_info->network_address.hostname = "host name";
-    _env->_master_info->network_address.port = _backend_id;
-    _env->_master_info->backend_id = 1001;
-    _env->_wal_manager = WalManager::create_shared(_env, _wal_dir);
-    std::string base_path;
-    auto st = _env->_wal_manager->_init_wal_dirs_info();
-    st = _env->_wal_manager->create_wal_path(_db_id, _tb_id, _txn_id_1, _label_1, base_path,
-                                             _version_0);
-    std::string src = "./be/test/exec/test_data/wal_scanner/wal_version0";
-    std::string dst = _wal_dir + "/" + std::to_string(_db_id) + "/" + std::to_string(_tb_id) + "/" +
-                      std::to_string(_version_0) + "_" + std::to_string(_backend_id) + "_" +
-                      std::to_string(_txn_id_1) + "_" + _label_1;
-    std::filesystem::copy(src, dst);
-    st = _env->_wal_manager->create_wal_path(_db_id, _tb_id, _txn_id_2, _label_2, base_path,
-                                             _version_1);
-    src = "./be/test/exec/test_data/wal_scanner/wal_version1";
-    dst = _wal_dir + "/" + std::to_string(_db_id) + "/" + std::to_string(_tb_id) + "/" +
-          std::to_string(_version_1) + "_" + std::to_string(_backend_id) + "_" +
-          std::to_string(_txn_id_2) + "_" + _label_2;
-    std::filesystem::copy(src, dst);
-}
-
-void VWalScannerTest::generate_scanner(std::shared_ptr<VFileScanner>& scanner) {
-    auto split_source = std::make_shared<TestSplitSourceConnector>(_scan_range);
-    scanner = std::make_shared<VFileScanner>(&_runtime_state, _scan_node.get(), -1, split_source,
-                                             _profile, _kv_cache.get());
-    scanner->_is_load = false;
-    vectorized::VExprContextSPtrs _conjuncts;
-    std::unordered_map<std::string, ColumnValueRangeType> _colname_to_value_range;
-    std::unordered_map<std::string, int> _colname_to_slot_id;
-    WARN_IF_ERROR(scanner->prepare(_conjuncts, &_colname_to_value_range, &_colname_to_slot_id),
-                  "fail to prepare scanner");
-}
-
-TEST_F(VWalScannerTest, normal) {
-    // read wal file with wal_version=0
-    _runtime_state._wal_id = _txn_id_1;
-    std::shared_ptr<VFileScanner> scanner = nullptr;
-    generate_scanner(scanner);
-    std::unique_ptr<vectorized::Block> block(new vectorized::Block());
-    bool eof = false;
-    auto st = scanner->get_block(&_runtime_state, block.get(), &eof);
-    ASSERT_TRUE(st.ok());
-    EXPECT_EQ(3, block->rows());
-    block->clear();
-    st = scanner->get_block(&_runtime_state, block.get(), &eof);
-    ASSERT_TRUE(st.ok());
-    EXPECT_EQ(0, block->rows());
-    ASSERT_TRUE(eof);
-    WARN_IF_ERROR(scanner->close(&_runtime_state), "fail to close scanner");
-    // read wal file with wal_version=1
-    eof = false;
-    _runtime_state._wal_id = _txn_id_2;
-    generate_scanner(scanner);
-    st = scanner->get_block(&_runtime_state, block.get(), &eof);
-    ASSERT_TRUE(st.ok());
-    EXPECT_EQ(3, block->rows());
-    block->clear();
-    st = scanner->get_block(&_runtime_state, block.get(), &eof);
-    ASSERT_TRUE(st.ok());
-    EXPECT_EQ(0, block->rows());
-    ASSERT_TRUE(eof);
-    WARN_IF_ERROR(scanner->close(&_runtime_state), "fail to close scanner");
-}
-
-TEST_F(VWalScannerTest, fail_with_not_equal) {
-    auto sp = SyncPoint::get_instance();
-    Defer defer {[sp] {
-        sp->clear_call_back("WalReader::set_column_id_count");
-        sp->clear_call_back("WalReader::set_out_block_column_size");
-    }};
-    sp->set_call_back("WalReader::set_column_id_count",
-                      [](auto&& args) { *try_any_cast<int64_t*>(args[0]) = 2; });
-    sp->set_call_back("WalReader::set_out_block_column_size",
-                      [](auto&& args) { *try_any_cast<size_t*>(args[0]) = 2; });
-    sp->enable_processing();
-
-    _runtime_state._wal_id = _txn_id_1;
-    std::shared_ptr<VFileScanner> scanner = nullptr;
-    generate_scanner(scanner);
-    std::unique_ptr<vectorized::Block> block(new vectorized::Block());
-    bool eof = false;
-    auto st = scanner->get_block(&_runtime_state, block.get(), &eof);
-    ASSERT_FALSE(st.ok());
-    auto msg = st.to_string();
-    auto pos = msg.find("not equal");
-    ASSERT_TRUE(pos != msg.npos);
-    WARN_IF_ERROR(scanner->close(&_runtime_state), "fail to close scanner");
-}
-
-} // namespace vectorized
-} // namespace doris
