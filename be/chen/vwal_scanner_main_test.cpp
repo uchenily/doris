@@ -375,6 +375,16 @@ int main(int argc, char** argv) {
     if (!st) { std::cout << st.to_string(); }
     assert(block->rows() == 3); // 验证读取到的行数
     std::cout << "Read " << block->rows() << " rows. OK." << std::endl;
+
+    // Print block info
+    std::cout << "Block structure:" << std::endl;
+    std::cout << block->dump_structure() << std::endl;
+
+    // std::cout << "Block data:" << std::endl;
+    // std::cout << block->dump_data() << std::endl;
+    // Block data:
+    // F20250805 16:57:34.349085 1650245 assert_cast.h:59] Bad cast from type:doris::vectorized::ColumnNullable to doris::vectorized::ColumnStr<unsigned int>
+
     block->clear();
     
     // 第二次读取，应该到达文件末尾
