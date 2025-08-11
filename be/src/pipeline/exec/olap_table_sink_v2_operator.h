@@ -90,7 +90,7 @@ public:
         auto& local_state = get_local_state(state);
         SCOPED_TIMER(local_state.exec_time_counter());
         COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)in_block->rows());
-        return local_state.sink(state, in_block, eos);
+        return local_state.sink(state, in_block, eos); // 写入block
     }
 
 private:

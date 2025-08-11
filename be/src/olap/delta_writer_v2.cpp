@@ -138,7 +138,7 @@ Status DeltaWriterV2::init() {
     return Status::OK();
 }
 
-Status DeltaWriterV2::write(const vectorized::Block* block, const std::vector<uint32_t>& row_idxs) {
+Status DeltaWriterV2::write(const vectorized::Block* block, const std::vector<uint32_t>& row_idxs) { // deleter_writer_v2->write --> memtable_writer->write
     if (UNLIKELY(row_idxs.empty())) {
         return Status::OK();
     }

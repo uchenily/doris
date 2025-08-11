@@ -25,7 +25,7 @@ int main() {
     doris::MemInfo::init();
     doris::ThreadLocalHandle::create_thread_local_if_not_exits();
 
-    doris::config::enable_memory_orphan_check = false; // why?
+    // doris::config::enable_memory_orphan_check = false; // why?
     auto env = doris::ExecEnv::GetInstance();
     std::ignore = doris::ExecEnv::init(env, paths, {}, {});
 
@@ -71,6 +71,8 @@ int main() {
 
     std::cout << "Block test passed!" << std::endl;
 
-    env->_wal_manager->stop();
+    // env->_wal_manager->stop();
+    env->destroy();
+    doris::ThreadLocalHandle::del_thread_local_if_count_is_zero();
     return 0;
 }

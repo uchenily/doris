@@ -200,7 +200,7 @@ public class WorkloadRuntimeStatusMgr extends MasterDaemon {
         // 1 merge query stats in all be
         Set<Long> beIdSet = beToQueryStatsMap.keySet();
         Map<String, TQueryStatistics> resultQueryMap = Maps.newHashMap();
-        for (Long beId : beIdSet) {
+        for (Long beId : beIdSet) { // 每一个be得到的QueryStats都要统计进去.
             BeReportInfo beReportInfo = beToQueryStatsMap.get(beId);
             Set<String> queryIdSet = beReportInfo.queryStatsMap.keySet();
             for (String queryId : queryIdSet) {

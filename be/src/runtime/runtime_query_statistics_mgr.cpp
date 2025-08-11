@@ -78,8 +78,8 @@ void RuntimeQueryStatisticsMgr::report_runtime_query_statistics() {
                     }
 
                     TQueryStatistics ret_t_qs;
-                    qs_ctx_ptr->collect_query_statistics(&ret_t_qs);
-                    fe_qs_map.at(qs_ctx_ptr->_fe_addr)[query_id] = ret_t_qs;
+                    qs_ctx_ptr->collect_query_statistics(&ret_t_qs); // 收集查询统计信息
+                    fe_qs_map.at(qs_ctx_ptr->_fe_addr)[query_id] = ret_t_qs; // 设置 fe_qs_map
                     qs_status[query_id] =
                             std::make_pair(is_query_finished, is_timeout_after_finish);
                 }
@@ -109,7 +109,7 @@ void RuntimeQueryStatisticsMgr::report_runtime_query_statistics() {
         // 2.2 send report
         TReportWorkloadRuntimeStatusParams report_runtime_params;
         report_runtime_params.__set_backend_id(be_id);
-        report_runtime_params.__set_query_statistics_map(qs_map);
+        report_runtime_params.__set_query_statistics_map(qs_map); // 设置 query_statistics_map -> fe 接受到
 
         TReportExecStatusParams params;
         params.__set_report_workload_runtime_status(report_runtime_params);
@@ -117,7 +117,7 @@ void RuntimeQueryStatisticsMgr::report_runtime_query_statistics() {
         TReportExecStatusResult res;
         Status rpc_status;
         try {
-            coord->reportExecStatus(res, params);
+            coord->reportExecStatus(res, params); // coordinator 报告执行状态
             rpc_result[addr] = true;
         } catch (apache::thrift::TApplicationException& e) {
             LOG(WARNING) << "[report_query_statistics]fe " << add_str
@@ -216,7 +216,7 @@ void RuntimeQueryStatisticsMgr::get_metric_map(
         }
     }
     metric_map.emplace(WorkloadMetricType::QUERY_TIME, std::to_string(query_time_ms));
-    metric_map.emplace(WorkloadMetricType::SCAN_ROWS, std::to_string(ret_qs.get_scan_rows()));
+    metric_map.emplace(WorkloadMetricType::SCAN_ROWS, std::to_string(ret_qs.get_scan_rows())); // scan_rows
     metric_map.emplace(WorkloadMetricType::SCAN_BYTES, std::to_string(ret_qs.get_scan_bytes()));
     metric_map.emplace(WorkloadMetricType::QUERY_MEMORY_BYTES,
                        std::to_string(ret_qs.get_current_used_memory_bytes()));

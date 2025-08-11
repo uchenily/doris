@@ -438,7 +438,7 @@ Status VTabletWriterV2::_select_streams(int64_t tablet_id, int64_t partition_id,
     return st;
 }
 
-Status VTabletWriterV2::write(Block& input_block) {
+Status VTabletWriterV2::write(Block& input_block) { // 真正写文件
     SCOPED_CONSUME_MEM_TRACKER(_mem_tracker.get());
     Status status = Status::OK();
 
@@ -475,7 +475,7 @@ Status VTabletWriterV2::write(Block& input_block) {
             input_block, block, filtered_rows, has_filtered_rows, _row_part_tablet_ids,
             _number_input_rows));
     RowsForTablet rows_for_tablet;
-    _generate_rows_for_tablet(_row_part_tablet_ids, rows_for_tablet);
+    _generate_rows_for_tablet(_row_part_tablet_ids, rows_for_tablet); // block -> tablets
 
     _row_distribution_watch.stop();
 
@@ -537,7 +537,7 @@ Status VTabletWriterV2::_write_memtable(std::shared_ptr<vectorized::Block> block
         ExecEnv::GetInstance()->memtable_memory_limiter()->handle_memtable_flush();
     }
     SCOPED_TIMER(_write_memtable_timer);
-    st = delta_writer->write(block.get(), rows.row_idxes);
+    st = delta_writer->write(block.get(), rows.row_idxes); // deleta_writer 写入block
     return st;
 }
 

@@ -152,7 +152,7 @@ void AsyncResultWriter::process_block(RuntimeState* state, RuntimeProfile* profi
 
         //2) get the block from  data queue and write to downstream
         auto block = _get_block_from_queue(); // 从data队列中取出一个block
-        auto status = write(*block); // 写入block
+        auto status = write(*block); // 写入block, 这里能看出来, 对于同一个AsyncResultWriter, 只有唯一一个线程在执行写入
         if (!status.ok()) [[unlikely]] {
             std::unique_lock l(_m);
             _writer_status.update(status);
