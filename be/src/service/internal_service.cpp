@@ -40,6 +40,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/stat.h>
+#include <thrift/protocol/TDebugProtocol.h>
 #include <vec/exec/vjdbc_connector.h>
 
 #include <algorithm>
@@ -599,28 +600,28 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
             RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
         }
 
-        // NOTE: 打印这个结构
-        auto transport = std::make_shared<apache::thrift::server::TMemoryBuffer>();
-        // auto protocol = std::make_shared<apache::thrift::protocol::TJSONProtocol>(transport); // 输出json, 但是缺少字段信息, 不可读
-        auto protocol = std::make_shared<apache::thrift::protocol::TDebugProtocol>(transport); // 可读性好
-
-        t_request.write(reinterpret_cast<::apache::thrift::protocol::TProtocol*>(protocol.get())); // t_request 是原来代码中的变量
-
-        uint8_t* buf;
-        uint32_t size;
-        transport->getBuffer(&buf, &size);
-
-        std::string msg(reinterpret_cast<char*>(buf), size);
-
-        std::ofstream outFile("/tmp/doris-request");
-
-        if (outFile.is_open()) {
-            outFile << msg; // 将字符串写入文件
-            outFile.close();    // 关闭文件
-            // std::cout << "成功写入文件 /tmp/doris-request" << std::endl;
-        } else {
-            std::cerr << "无法打开文件 /tmp/doris-request" << std::endl;
-        }
+        // // NOTE: 打印这个结构
+        // auto transport = std::make_shared<apache::thrift::server::TMemoryBuffer>();
+        // // auto protocol = std::make_shared<apache::thrift::protocol::TJSONProtocol>(transport); // 输出json, 但是缺少字段信息, 不可读
+        // auto protocol = std::make_shared<apache::thrift::protocol::TDebugProtocol>(transport); // 可读性好
+        //
+        // t_request.write(reinterpret_cast<::apache::thrift::protocol::TProtocol*>(protocol.get())); // t_request 是原来代码中的变量
+        //
+        // uint8_t* buf;
+        // uint32_t size;
+        // transport->getBuffer(&buf, &size);
+        //
+        // std::string msg(reinterpret_cast<char*>(buf), size);
+        //
+        // std::ofstream outFile("/tmp/doris-request");
+        //
+        // if (outFile.is_open()) {
+        //     outFile << msg; // 将字符串写入文件
+        //     outFile.close();    // 关闭文件
+        //     // std::cout << "成功写入文件 /tmp/doris-request" << std::endl;
+        // } else {
+        //     std::cerr << "无法打开文件 /tmp/doris-request" << std::endl;
+        // }
 
         std::string msg2 = apache::thrift::ThriftDebugString(t_request);
 

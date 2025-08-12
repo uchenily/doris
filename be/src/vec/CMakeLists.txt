@@ -22,14 +22,17 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_DIR}/src/vec")
 file(GLOB_RECURSE VEC_FILES CONFIGURE_DEPENDS *.cpp)
 
 if (NOT WITH_MYSQL)
-    list(REMOVE_ITEM VEC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/exec/vmysql_scan_node.cpp ${CMAKE_CURRENT_SOURCE_DIR}/exec/scan/mysql_scanner.cpp)
+    list(REMOVE_ITEM VEC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/exec/vmysql_scan_node.cpp ${CMAKE_CURRENT_SOURCE_DIR}/exec/scan/mysql_scanner.cpp ${CMAKE_CURRENT_SOURCE_DIR}/sink/writer/vmysql_table_writer.cpp)
 endif ()
 
-add_library(Vec STATIC
+# add_library(Vec STATIC
+add_library(Vec SHARED
         ${VEC_FILES}
 )
 
-pch_reuse(Vec)
+# pch_reuse(Vec)
+# set_target_properties(Vec PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_compile_options(Vec PRIVATE -fPIC)
 
 # add_executable(my_test ${CMAKE_CURRENT_SOURCE_DIR}/my_test.cpp)
 # target_link_libraries(my_test PRIVATE ${DORIS_LINK_LIBS})

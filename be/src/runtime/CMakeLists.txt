@@ -29,8 +29,12 @@ if (NOT USE_JEMALLOC OR NOT USE_MEM_TRACKER)
     list(REMOVE_ITEM RUNTIME_FILES ${CMAKE_CURRENT_SOURCE_DIR}/memory/jemalloc_hook.cpp)
 endif()
 
-add_library(Runtime STATIC
+# add_library(Runtime STATIC
+add_library(Runtime SHARED
     ${RUNTIME_FILES}
 )
 
-pch_reuse(Runtime)
+# pch_reuse(Runtime)
+# target_link_options(Runtime PRIVATE
+#     "LINKER:--exclude-libs=libcurl.a"
+# )

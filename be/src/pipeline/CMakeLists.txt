@@ -27,8 +27,9 @@ if (NOT WITH_MYSQL)
     list(REMOVE_ITEM PIPELINE_FILES ${CMAKE_CURRENT_SOURCE_DIR}/exec/mysql_scan_operator.cpp)
 endif ()
 
-add_library(Pipeline STATIC
+# add_library(Pipeline STATIC
+add_library(Pipeline SHARED
         ${PIPELINE_FILES}
 )
 
-pch_reuse(Pipeline)
+# pch_reuse(Pipeline)

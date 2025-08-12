@@ -24,9 +24,10 @@ set(EXECUTABLE_OUTPUT_PATH "${BUILD_DIR}/src/service")
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS *.cpp)
 list(REMOVE_ITEM SRC_FILES ${CMAKE_CURRENT_SOURCE_DIR}/doris_main.cpp)
 
-add_library(Service STATIC ${SRC_FILES})
+# add_library(Service STATIC ${SRC_FILES})
+add_library(Service SHARED ${SRC_FILES})
 
-pch_reuse(Service)
+# pch_reuse(Service)
 
 if (${MAKE_TEST} STREQUAL "OFF")
     add_executable(doris_be
@@ -44,7 +45,7 @@ if (${MAKE_TEST} STREQUAL "OFF")
         # gflags
     )
     # target_link_libraries(doris_be glog::glog gflags)
-    target_link_options(doris_be PRIVATE "LINKER:-rpath,\$ORIGIN/../udf/:\$ORIGIN/../../../../thirdparty/installed/lib64/")
+    target_link_options(doris_be PRIVATE "LINKER:-rpath,\$ORIGIN/:\$ORIGIN/../udf/:\$ORIGIN/../vec/:\$ORIGIN/../pipeline/:\$ORIGIN/../runtime/:\$ORIGIN/../olap/:\$ORIGIN/../util/:\$ORIGIN/../../../../thirdparty/installed/lib64/")
 
     install(DIRECTORY DESTINATION ${OUTPUT_DIR}/lib/)
     install(TARGETS doris_be DESTINATION ${OUTPUT_DIR}/lib/)
