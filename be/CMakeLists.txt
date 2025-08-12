@@ -490,6 +490,7 @@ find_package(absl)
 
 find_package(gflags REQUIRED)
 find_package(glog REQUIRED)
+find_package(CURL REQUIRED)
 
 
 # COMMON_THIRDPARTY are thirdparty dependencies that can run on all platform

@@ -844,6 +844,7 @@ Status PipelineFragmentContext::_create_sink(int sender_id, const TDataSink& thr
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
     case TDataSinkType::OLAP_TABLE_SINK: { // 一般是创建OlapTableSink (比如 stream_load)
         DCHECK(thrift_sink.__isset.olap_table_sink);
+            // 如果enable_memtable_on_sink_node, 而且没有倒排索引或者部分更新(???), 则创建一个OlapTableSinkV2, 其他情况都使用V1 --> 执行计划中名字都是OlapTableSink, 不区分v1/v2
         if (state->query_options().enable_memtable_on_sink_node &&
             !_has_inverted_index_or_partial_update(thrift_sink.olap_table_sink)) {
             sink_ = std::make_shared<OlapTableSinkV2OperatorBuilder>(next_operator_builder_id(),

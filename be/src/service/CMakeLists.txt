@@ -43,6 +43,7 @@ if (${MAKE_TEST} STREQUAL "OFF")
         ${DORIS_LINK_LIBS}
         glog::glog
         # gflags
+        CURL::libcurl
     )
     # target_link_libraries(doris_be glog::glog gflags)
     target_link_options(doris_be PRIVATE "LINKER:-rpath,\$ORIGIN/:\$ORIGIN/../udf/:\$ORIGIN/../vec/:\$ORIGIN/../pipeline/:\$ORIGIN/../runtime/:\$ORIGIN/../olap/:\$ORIGIN/../util/:\$ORIGIN/../../../../thirdparty/installed/lib64/")
