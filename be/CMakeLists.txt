@@ -254,7 +254,7 @@ add_compile_options(-g
                     $<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>)
 
 add_compile_options(-Wno-unused-parameter
-	#$<$<COMPILE_LANGUAGE:CXX>:-Wno-incompatible-pointer-types>
+	        $<$<COMPILE_LANGUAGE:CXX>:-Wno-incompatible-pointer-types>
 	            -Wno-unknown-warning-option
 		    -Wno-ignored-attributes
                     -Wno-deprecated-declarations
@@ -282,7 +282,7 @@ if (COMPILER_CLANG)
                         -Wpedantic
                         -Wshadow-field
                         -Wunused
-                        -Wunused-command-line-argument
+                        # -Wunused-command-line-argument
                         -Wunused-exception-parameter
                         -Wunused-volatile-lvalue
                         -Wunused-template
@@ -488,6 +488,10 @@ set(DORIS_LINK_LIBS
 set(absl_DIR ${THIRDPARTY_DIR}/lib/cmake/absl)
 find_package(absl)
 
+find_package(gflags REQUIRED)
+find_package(glog REQUIRED)
+
+
 # COMMON_THIRDPARTY are thirdparty dependencies that can run on all platform
 # When adding new dependencies, If you don’t know if it can run on all platforms,
 # add it here first.
@@ -496,7 +500,7 @@ set(COMMON_THIRDPARTY
     ${COMMON_THIRDPARTY}
 )
 
-#if ((ARCH_AMD64 OR ARCH_AARCH64) AND OS_LINUX)
+# if ((ARCH_AMD64 OR ARCH_AARCH64) AND OS_LINUX)
 #    add_library(hadoop_hdfs STATIC IMPORTED)
 #    set_target_properties(hadoop_hdfs PROPERTIES IMPORTED_LOCATION ${THIRDPARTY_DIR}/lib/hadoop_hdfs/native/libhdfs.a)
 #
@@ -505,7 +509,7 @@ set(COMMON_THIRDPARTY
 #        hadoop_hdfs
 #    )
 #    add_definitions(-DUSE_HADOOP_HDFS)
-#else()
+# else()
     add_library(hdfs3 STATIC IMPORTED)
     set_target_properties(hdfs3 PROPERTIES IMPORTED_LOCATION ${THIRDPARTY_DIR}/lib/libhdfs3.a)
 
@@ -515,7 +519,7 @@ set(COMMON_THIRDPARTY
         hdfs3
     )
     add_definitions(-DUSE_LIBHDFS3)
-#endif()
+# endif()
 
 if (absl_FOUND)
     set(COMMON_THIRDPARTY
@@ -660,7 +664,8 @@ set (TEST_LINK_LIBS ${DORIS_LINK_LIBS}
 )
 
 # Only build static libs
-set(BUILD_SHARED_LIBS OFF)
+# set(BUILD_SHARED_LIBS OFF)
+set(BUILD_SHARED_LIBS ON)
 
 option(ENABLE_CLANG_COVERAGE "coverage option" OFF)
 if (ENABLE_CLANG_COVERAGE AND ENABLE_CLANG_COVERAGE STREQUAL ON AND COMPILER_CLANG)

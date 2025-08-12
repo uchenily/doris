@@ -52,6 +52,10 @@
 #define VLOG_NOTICE_IS_ON VLOG_IS_ON(3)
 #define VLOG_CRITICAL_IS_ON VLOG_IS_ON(1)
 
+// // chen
+// DECLARE_int32(log_filenum_quota);
+// DECLARE_string(log_split_method);
+
 /// Define a wrapper around DCHECK for strongly typed enums that print a useful error
 /// message on failure.
 #define DCHECK_ENUM_EQ(a, b)                                                 \

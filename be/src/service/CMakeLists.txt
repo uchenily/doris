@@ -40,7 +40,11 @@ if (${MAKE_TEST} STREQUAL "OFF")
 
     target_link_libraries(doris_be
         ${DORIS_LINK_LIBS}
+        glog::glog
+        # gflags
     )
+    # target_link_libraries(doris_be glog::glog gflags)
+    target_link_options(doris_be PRIVATE "LINKER:-rpath,\$ORIGIN/../udf/:\$ORIGIN/../../../../thirdparty/installed/lib64/")
 
     install(DIRECTORY DESTINATION ${OUTPUT_DIR}/lib/)
     install(TARGETS doris_be DESTINATION ${OUTPUT_DIR}/lib/)

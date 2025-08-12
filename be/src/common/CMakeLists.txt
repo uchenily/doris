@@ -20,6 +20,7 @@ set(LIBRARY_OUTPUT_PATH "${BUILD_DIR}/src/common")
 
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS *.cpp)
 add_library(Common STATIC ${SRC_FILES})
+# target_link_libraries(Common glog::glog)
 
 pch_reuse(Common)
 

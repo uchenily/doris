@@ -42,8 +42,8 @@ set (UDF_TEST_LINK_LIBS
   -Wl,--end-group
 # Below are all external dependencies.  They should some after the doris libs.
   ${Boost_LIBRARIES}
-  glogstatic
-  gflagsstatic
+  # glogstatic
+  # gflagsstatic
   -lboost_date_time
   gtest)
   
