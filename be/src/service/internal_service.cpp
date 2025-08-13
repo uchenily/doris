@@ -370,7 +370,10 @@ void PInternalServiceImpl::_exec_plan_fragment_in_pthread(
     response->set_execution_done_time(tv2.tv_sec * 1000LL + tv2.tv_usec / 1000);
 }
 
-// brpc 入口
+// brpc 入口, 但是是谁发起rpc调用的呢? fe发起的, fe不仅作为一个thrift客户端, 也是一个grpc客户端
+// fe-core/src/main/java/org/apache/doris/rpc/BackendServiceClient.java
+// 74:    public Future<InternalService.PExecPlanFragmentResult> execPlanFragmentPrepareAsync(
+// 77:                .execPlanFragmentPrepare(request);
 void PInternalServiceImpl::exec_plan_fragment_prepare(google::protobuf::RpcController* controller,
                                                       const PExecPlanFragmentRequest* request,
                                                       PExecPlanFragmentResult* response,
@@ -547,50 +550,54 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
                 "service");
     }
     if (version == PFragmentRequestVersion::VERSION_1) {
-        // VERSION_1 should be removed in v1.2
-        TExecPlanFragmentParams t_request;
-        {
-            const uint8_t* buf = (const uint8_t*)ser_request.data();
-            uint32_t len = ser_request.size();
-            RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
-        }
-        if (cb) {
-            return _exec_env->fragment_mgr()->exec_plan_fragment(
-                    t_request, QuerySource::INTERNAL_FRONTEND, cb);
-        } else {
-            return _exec_env->fragment_mgr()->exec_plan_fragment(t_request,
-                                                                 QuerySource::INTERNAL_FRONTEND);
-        }
+        CHECK(false);
+        // // VERSION_1 should be removed in v1.2
+        // TExecPlanFragmentParams t_request;
+        // {
+        //     const uint8_t* buf = (const uint8_t*)ser_request.data();
+        //     uint32_t len = ser_request.size();
+        //     RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
+        // }
+        // if (cb) {
+        //     return _exec_env->fragment_mgr()->exec_plan_fragment(
+        //             t_request, QuerySource::INTERNAL_FRONTEND, cb);
+        // } else {
+        //     return _exec_env->fragment_mgr()->exec_plan_fragment(t_request,
+        //                                                          QuerySource::INTERNAL_FRONTEND);
+        // }
     } else if (version == PFragmentRequestVersion::VERSION_2) {
-        TExecPlanFragmentParamsList t_request;
-        {
-            const uint8_t* buf = (const uint8_t*)ser_request.data();
-            uint32_t len = ser_request.size();
-            RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
-        }
-        const auto& fragment_list = t_request.paramsList;
-        MonotonicStopWatch timer;
-        timer.start();
-
-        for (const TExecPlanFragmentParams& params : t_request.paramsList) {
-            if (cb) {
-                RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
-                        params, QuerySource::INTERNAL_FRONTEND, cb));
-            } else {
-                RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
-                        params, QuerySource::INTERNAL_FRONTEND));
-            }
-        }
-
-        timer.stop();
-        double cost_secs = static_cast<double>(timer.elapsed_time()) / 1000000000ULL;
-        if (cost_secs > 5) {
-            LOG_WARNING("Prepare {} fragments of query {} costs {} seconds, it costs too much",
-                        fragment_list.size(), print_id(fragment_list.front().params.query_id),
-                        cost_secs);
-        }
-
-        return Status::OK();
+        CHECK(false);
+        // // v2 使用 TExecPlanFragmentParamsList
+        // // v3 使用 TPipelineFragmentParamsList
+        // TExecPlanFragmentParamsList t_request;
+        // {
+        //     const uint8_t* buf = (const uint8_t*)ser_request.data();
+        //     uint32_t len = ser_request.size();
+        //     RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
+        // }
+        // const auto& fragment_list = t_request.paramsList;
+        // MonotonicStopWatch timer;
+        // timer.start();
+        //
+        // for (const TExecPlanFragmentParams& params : t_request.paramsList) {
+        //     if (cb) {
+        //         RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
+        //                 params, QuerySource::INTERNAL_FRONTEND, cb));
+        //     } else {
+        //         RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
+        //                 params, QuerySource::INTERNAL_FRONTEND));
+        //     }
+        // }
+        //
+        // timer.stop();
+        // double cost_secs = static_cast<double>(timer.elapsed_time()) / 1000000000ULL;
+        // if (cost_secs > 5) {
+        //     LOG_WARNING("Prepare {} fragments of query {} costs {} seconds, it costs too much",
+        //                 fragment_list.size(), print_id(fragment_list.front().params.query_id),
+        //                 cost_secs);
+        // }
+        //
+        // return Status::OK();
     } else if (version == PFragmentRequestVersion::VERSION_3) {
         // 一般是走这里
         TPipelineFragmentParamsList t_request;

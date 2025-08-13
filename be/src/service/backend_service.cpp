@@ -667,10 +667,12 @@ Status BackendService::create_service(ExecEnv* exec_env, int port,
 
 void BackendService::exec_plan_fragment(TExecPlanFragmentResult& return_val,
                                         const TExecPlanFragmentParams& params) {
-    LOG(INFO) << "exec_plan_fragment() instance_id=" << print_id(params.params.fragment_instance_id)
-              << " coord=" << params.coord << " backend#=" << params.backend_num;
-              // execute plan
-    return_val.__set_status(start_plan_fragment_execution(params).to_thrift());
+    // 这个方法似乎不再使用? 还是目前没遇到?
+    CHECK(false);
+    // LOG(INFO) << "exec_plan_fragment() instance_id=" << print_id(params.params.fragment_instance_id)
+    //           << " coord=" << params.coord << " backend#=" << params.backend_num;
+    //           // execute plan
+    // return_val.__set_status(start_plan_fragment_execution(params).to_thrift());
 }
 
 Status BackendService::start_plan_fragment_execution(const TExecPlanFragmentParams& exec_params) {

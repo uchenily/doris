@@ -33,12 +33,18 @@ all: ${OBJECTS} ${HEADERS}
 
 ${BUILD_DIR}/gen_cpp/%.pb.h ${BUILD_DIR}/gen_cpp/%.pb.cc: ${CURDIR}/%.proto | ${BUILD_DIR}/gen_cpp
 	${PROTOC} --proto_path=${CURDIR} --cpp_out=${BUILD_DIR}/gen_cpp $<
+	# ${PROTOC} --proto_path=${CURDIR} --python_out=${BUILD_DIR}/gen_py $<
+	python3 -m grpc_tools.protoc --proto_path=${CURDIR} --python_out=${BUILD_DIR}/gen_py --pyi_out=${BUILD_DIR}/gen_py --grpc_python_out=${BUILD_DIR}/gen_py $<
 
 #${BUILD_DIR}/java/org/apache/doris/proto/%.java: ${CURDIR}/%.proto | ${BUILD_DIR}/java
 #	${PROTOC} --proto_path=${CURDIR} --java_out=${BUILD_DIR}/java/ $<
 
 ${BUILD_DIR}/gen_cpp:
 	mkdir -p $@
+
+${BUILD_DIR}/gen_py:
+	mkdir -p $@
+
 
 #${BUILD_DIR}/java:
 #	mkdir -p $@
