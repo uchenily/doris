@@ -604,6 +604,15 @@ Status PInternalServiceImpl::_exec_plan_fragment_impl(
         {
             const uint8_t* buf = (const uint8_t*)ser_request.data();
             uint32_t len = ser_request.size();
+            // 保存到文件
+            // 将 buf 的内容保存到文件
+            std::ofstream out_file("/tmp/output.bin", std::ios::binary);
+            if (out_file.is_open()) {
+                out_file.write(reinterpret_cast<const char*>(buf), len);
+                out_file.close();
+            } else {
+                std::cerr << "Failed to open file for writing." << std::endl;
+            }
             RETURN_IF_ERROR(deserialize_thrift_msg(buf, &len, compact, &t_request));
         }
 

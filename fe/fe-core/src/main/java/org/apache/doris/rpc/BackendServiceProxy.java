@@ -154,6 +154,7 @@ public class BackendServiceProxy {
         }
     }
 
+    // NOTE(chen): VERSION_2
     public Future<InternalService.PExecPlanFragmentResult> execPlanFragmentsAsync(TNetworkAddress address,
             TExecPlanFragmentParamsList paramsList, boolean twoPhaseExecution) throws TException, RpcException {
         InternalService.PExecPlanFragmentRequest.Builder builder =
@@ -186,6 +187,7 @@ public class BackendServiceProxy {
         }
     }
 
+    // NOTE(chen): VERSION_3
     public Future<InternalService.PExecPlanFragmentResult> execPlanFragmentsAsync(TNetworkAddress address,
             TPipelineFragmentParamsList params, boolean twoPhaseExecution) throws TException, RpcException {
         InternalService.PExecPlanFragmentRequest.Builder builder =
@@ -195,7 +197,7 @@ public class BackendServiceProxy {
                     ByteString.copyFrom(new TSerializer(new TCompactProtocol.Factory()).serialize(params)));
             builder.setCompact(true);
         } else {
-            builder.setRequest(ByteString.copyFrom(new TSerializer().serialize(params))).build();
+            builder.setRequest(ByteString.copyFrom(new TSerializer().serialize(params))).build(); // 将thrift格式的 TPipelineFragmentParamsList 序列化, 放到protobuf 的请求中.(grpc)
             builder.setCompact(false);
         }
         // VERSION 3 means we send TPipelineFragmentParamsList
@@ -222,7 +224,7 @@ public class BackendServiceProxy {
         try {
             final BackendServiceClient client = getProxy(address);
             if (twoPhaseExecution) {
-                return client.execPlanFragmentPrepareAsync(pRequest);
+                return client.execPlanFragmentPrepareAsync(pRequest); // 然后通过客户端将这个grpc请求发送出去.
             } else {
                 return client.execPlanFragmentAsync(pRequest);
             }
