@@ -400,7 +400,7 @@ Status PipelineXFragmentContext::_create_data_sink(ObjectPool* pool, const TData
                                               thrift_sink.stream_sink, params.destinations));
         break;
     }
-    case TDataSinkType::RESULT_SINK: {
+    case TDataSinkType::RESULT_SINK: { // 显示结果, 比如 select * from ...;
         if (!thrift_sink.__isset.result_sink) {
             return Status::InternalError("Missing data buffer sink.");
         }
@@ -410,7 +410,7 @@ Status PipelineXFragmentContext::_create_data_sink(ObjectPool* pool, const TData
                                             thrift_sink.result_sink));
         break;
     }
-    case TDataSinkType::OLAP_TABLE_SINK: {
+    case TDataSinkType::OLAP_TABLE_SINK: { // 插入数据, 比如insert into ...;
         if (state->query_options().enable_memtable_on_sink_node &&
             !_has_inverted_index_or_partial_update(thrift_sink.olap_table_sink)) {
             _sink.reset(new OlapTableSinkV2OperatorX(pool, next_sink_operator_id(), row_desc,

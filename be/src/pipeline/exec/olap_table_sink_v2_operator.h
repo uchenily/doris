@@ -90,7 +90,7 @@ public:
         auto& local_state = get_local_state(state);
         SCOPED_TIMER(local_state.exec_time_counter());
         COUNTER_UPDATE(local_state.rows_input_counter(), (int64_t)in_block->rows());
-        return local_state.sink(state, in_block, eos); // 写入block
+        return local_state.sink(state, in_block, eos); // 写入block, --> AsyncWriterSink<Writer, Parent>::sink --> 最终是调用writer的sink方法, 在这里的writer就是 `vectorized::VTabletWriterV2` 的实例
     }
 
 private:

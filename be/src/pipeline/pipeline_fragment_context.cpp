@@ -338,13 +338,15 @@ Status PipelineFragmentContext::prepare(const doris::TPipelineFragmentParams& re
             scan_node->set_scan_ranges(_runtime_state.get(), scan_ranges);
             scan_node->set_shared_scan(_runtime_state.get(), shared_scan);
         } else {
-            auto* scan_node = static_cast<ScanNode*>(node);
-            auto scan_ranges = find_with_default(local_params.per_node_scan_ranges, scan_node->id(),
-                                                 no_scan_ranges);
-            RETURN_IF_ERROR(scan_node->set_scan_ranges(_runtime_state.get(), scan_ranges));
-            VLOG_CRITICAL << "query " << print_id(get_query_id())
-                          << " scan_node_id=" << scan_node->id()
-                          << " size=" << scan_ranges.get().size();
+            // 还会走这里吗?
+            CHECK(false);
+            // auto* scan_node = static_cast<ScanNode*>(node);
+            // auto scan_ranges = find_with_default(local_params.per_node_scan_ranges, scan_node->id(),
+            //                                      no_scan_ranges);
+            // RETURN_IF_ERROR(scan_node->set_scan_ranges(_runtime_state.get(), scan_ranges));
+            // VLOG_CRITICAL << "query " << print_id(get_query_id())
+            //               << " scan_node_id=" << scan_node->id()
+            //               << " size=" << scan_ranges.get().size();
         }
     }
 
