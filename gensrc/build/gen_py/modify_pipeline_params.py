@@ -20,7 +20,7 @@ def modify_query_id(input_file, new_query_id_hi, new_query_id_lo, output_file):
     params_list = PaloInternalService_ttypes.TPipelineFragmentParamsList()
     params_list.read(protocol)
 
-    # print(f"Original TPipelineFragmentParamsList: {params_list}")
+    print(f"Original TPipelineFragmentParamsList: {params_list}")
 
     # Modify the query_id
     new_query_id = Types_ttypes.TUniqueId(hi=new_query_id_hi, lo=new_query_id_lo)
