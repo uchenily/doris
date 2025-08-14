@@ -4,13 +4,13 @@ import internal_service_pb2_grpc
 import types_pb2
 
 from thrift.transport import TTransport
-from thrift.protocol import TCompactProtocol
 from thrift.protocol import TBinaryProtocol
 from Data import ttypes as Data_ttypes
 
+
 def run():
     # Doris BE 的brpc端口是8060
-    with grpc.insecure_channel('localhost:8060') as channel:
+    with grpc.insecure_channel("localhost:8060") as channel:
         stub = internal_service_pb2_grpc.PBackendServiceStub(channel)
 
         # with open("pipeline-params-modified.bin", "rb") as f:
@@ -18,7 +18,7 @@ def run():
 
             # Construct the request
             prepare_request = internal_service_pb2.PExecPlanFragmentRequest(
-                request=f.read(), # 对于VERSION_3, 需要传入的是TPipelineFragmentParamsList对象的序列化字节串
+                request=f.read(),  # 对于VERSION_3, 需要传入的是TPipelineFragmentParamsList对象的序列化字节串
                 version=internal_service_pb2.PFragmentRequestVersion.VERSION_3,
                 compact=True,
             )
@@ -26,8 +26,12 @@ def run():
         # 构造query_id
         # query_id = types_pb2.PUniqueId(hi=12345, lo=67890)
         query_id = types_pb2.PUniqueId(hi=1199038286675263702, lo=-7586643826940453435)
-        fragment_instance_id1 = types_pb2.PUniqueId(hi=1199038286675263702, lo=-7586643826940453433)
-        fragment_instance_id2 = types_pb2.PUniqueId(hi=1199038286675263702, lo=-7586643826940453434)
+        fragment_instance_id1 = types_pb2.PUniqueId(
+            hi=1199038286675263702, lo=-7586643826940453433
+        )
+        fragment_instance_id2 = types_pb2.PUniqueId(
+            hi=1199038286675263702, lo=-7586643826940453434
+        )
 
         prepare_response = None
         try:
@@ -50,65 +54,64 @@ def run():
             print("Successfully started plan fragment.")
             print("Start Response:", start_response)
 
-            import time; time.sleep(1)
+            import time
+
+            time.sleep(1)
 
             # for fragment_instance_id in [fragment_instance_id1, fragment_instance_id2]:
+            # for fragment_instance_id in [fragment_instance_id2, fragment_instance_id1]:
             for fragment_instance_id in [fragment_instance_id1]:
                 # Fetch the data
                 eos = False
                 fetch_request = internal_service_pb2.PFetchDataRequest(
-                    finst_id=fragment_instance_id
+                    finst_id=fragment_instance_id,
+                    resp_in_attachment=False,
                 )
                 # import pdb; pdb.set_trace()
                 while not eos:
                     fetch_response = stub.fetch_data(fetch_request)
                     print(">>>", fetch_response)
-                    
+
                     # Process the data
                     # I am assuming the response has 'eos' and 'row_batch' fields.
                     # You might need to adjust this based on the actual definitions.
-                    if hasattr(fetch_response, 'row_batch') and fetch_response.row_batch:
+                    if (
+                        hasattr(fetch_response, "row_batch")
+                        and fetch_response.row_batch
+                    ):
                         print("Received data batch:")
-                        # Here you would process the data in fetch_response.row_batch
-                        # For now, just printing it.
                         # print(fetch_response.row_batch)
-                        # row_batch 是 thrift.TRowBatch 序列化后的字节串
-                        
+                        # row_batch 是 thrift.TResultBatch 序列化后的字节串
+
                         # Deserialize the TRowBatch
+
+                        # Doris FE中使用的是一个自定义类型的协议, 但是其实只是BinaryProtocol改了一下maxMessageSize参数而已.
+                        # fe-core/src/main/java/org/apache/doris/rpc/TCustomProtocolFactory.java
+                        print("Trying with TBinaryProtocol...")
                         try:
-                            print(f"Received data batch with size: {len(fetch_response.row_batch)}")
-                            transport = TTransport.TMemoryBuffer(fetch_response.row_batch)
-                            protocol = TCompactProtocol.TCompactProtocol(transport)
-                            t_row_batch = Data_ttypes.TRowBatch()
+                            print("TYPE:", type(fetch_response.row_batch))
+                            transport = TTransport.TMemoryBuffer(
+                                fetch_response.row_batch
+                            )
+                            protocol = TBinaryProtocol.TBinaryProtocol(transport)
+                            # protocol = TCompactProtocol.TCompactProtocol(transport)
+                            # t_row_batch = Data_ttypes.TRowBatch()
+                            t_row_batch = (
+                                Data_ttypes.TResultBatch()
+                            )  # 命名有点坑, 应该是fetch_response.result_batch
                             t_row_batch.read(protocol)
-                            print("Deserialized TRowBatch with TCompactProtocol:")
+                            print("Deserialized TRowBatch with TBinaryProtocol:")
                             print(t_row_batch)
-                            if t_row_batch.num_rows == 0:
-                                print("TRowBatch contains 0 rows.")
-                            else:
-                                print(f"TRowBatch contains {t_row_batch.num_rows} rows.")
                         except Exception as e:
-                            print(f"Error deserializing TRowBatch with TCompactProtocol: {e}")
-                            print("Trying with TBinaryProtocol...")
-                            try:
-                                transport = TTransport.TMemoryBuffer(fetch_response.row_batch)
-                                protocol = TBinaryProtocol.TBinaryProtocol(transport)
-                                t_row_batch = Data_ttypes.TRowBatch()
-                                t_row_batch.read(protocol)
-                                print("Deserialized TRowBatch with TBinaryProtocol:")
-                                print(t_row_batch)
-                                if t_row_batch.num_rows == 0:
-                                    print("TRowBatch contains 0 rows.")
-                                else:
-                                    print(f"TRowBatch contains {t_row_batch.num_rows} rows.")
-                            except Exception as e2:
-                                print(f"Error deserializing TRowBatch with TBinaryProtocol: {e2}")
+                            print(
+                                f"Error deserializing TRowBatch with TBinaryProtocol: {e}"
+                            )
 
-                    if hasattr(fetch_response, 'status') and fetch_response.status != 0:
+                    if hasattr(fetch_response, "status") and fetch_response.status != 0:
                         print(fetch_response.status)
-                        # break
+                        break
 
-                    if hasattr(fetch_response, 'eos'):
+                    if hasattr(fetch_response, "eos"):
                         eos = fetch_response.eos
                     else:
                         # If 'eos' is not present, assume end of stream
@@ -120,7 +123,7 @@ def run():
             print(f"Error: {e.code()} - {e.details()}")
         finally:
             # Clean up the fragment
-            if prepare_response and hasattr(prepare_response, 'fragment_instance_id'):
+            if prepare_response and hasattr(prepare_response, "fragment_instance_id"):
                 try:
                     cancel_request = internal_service_pb2.PCancelPlanFragmentRequest(
                         finst_id=prepare_response.fragment_instance_id
@@ -131,5 +134,6 @@ def run():
                 except grpc.RpcError as e:
                     print(f"Error cancelling plan fragment: {e.code()} - {e.details()}")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run()
