@@ -1,0 +1,1 @@
+python3 -m grpc_tools.protoc --proto_path=/data11/chen/doris-latest/gensrc/proto --python_out=/data11/chen/doris-latest/gensrc/proto/../build//gen_py --pyi_out=/data11/chen/doris-latest/gensrc/proto/../build//gen_py --grpc_python_out=/data11/chen/doris-latest/gensrc/proto/../build//gen_py /data11/chen/doris-latest/gensrc/proto/descriptors.proto

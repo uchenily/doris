@@ -30,9 +30,11 @@ all: ${GEN_OBJECTS} ${OBJECTS}
 .PHONY: all
 
 $(shell mkdir -p ${BUILD_DIR}/gen_java)
+$(shell mkdir -p ${BUILD_DIR}/gen_py)
 
 THRIFT_CPP_ARGS = -I ${CURDIR} -I ${BUILD_DIR}/thrift/ --gen cpp:moveable_types,no_skeleton -out ${BUILD_DIR}/gen_cpp --allow-64bit-consts -strict
 THRIFT_JAVA_ARGS = -I ${CURDIR} -I ${BUILD_DIR}/thrift/ --gen java:fullcamel -out ${BUILD_DIR}/gen_java --allow-64bit-consts -strict
+THRIFT_PYTHON_ARGS = -I ${CURDIR} -I ${BUILD_DIR}/thrift/ -r --gen py -out ${BUILD_DIR}/gen_py --allow-64bit-consts -strict
 
 ${BUILD_DIR}/gen_cpp:
 	mkdir -p $@
@@ -40,8 +42,10 @@ ${BUILD_DIR}/gen_cpp:
 ${BUILD_DIR}/gen_cpp/%_types.cpp: ${CURDIR}/%.thrift | ${BUILD_DIR}/gen_cpp
 	${THRIFT} ${THRIFT_CPP_ARGS} $<
 	${THRIFT} ${THRIFT_JAVA_ARGS} $<
+	${THRIFT} ${THRIFT_PYTHON_ARGS} $<
 
 # generated thrift
 ${BUILD_DIR}/gen_cpp/%_types.cpp: ${BUILD_DIR}/thrift/%.thrift | ${BUILD_DIR}/gen_cpp
 	${THRIFT} ${THRIFT_CPP_ARGS} $<
 	${THRIFT} ${THRIFT_JAVA_ARGS} $<
+	${THRIFT} ${THRIFT_PYTHON_ARGS} $<
