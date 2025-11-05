@@ -643,8 +643,7 @@ Status WorkloadGroup::upsert_task_scheduler(WorkloadGroupInfo* wg_info) {
     std::lock_guard<std::shared_mutex> wlock(_task_sched_lock);
     upsert_cgroup_cpu_ctl_no_lock(wg_info);
 
-    // return upsert_thread_pool_no_lock(wg_info, _cgroup_cpu_ctl);
-    return Status::OK();
+    return upsert_thread_pool_no_lock(wg_info);
 }
 
 void WorkloadGroup::get_query_scheduler(doris::pipeline::TaskScheduler** exec_sched,
