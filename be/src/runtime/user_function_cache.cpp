@@ -36,7 +36,6 @@
 #include "common/config.h"
 #include "common/factory_creator.h"
 #include "common/status.h"
-#include "http/http_client.h"
 #include "io/fs/file_system.h"
 #include "io/fs/local_file_system.h"
 #include "runtime/exec_env.h"
@@ -203,29 +202,29 @@ Status UserFunctionCache::_get_cache_entry(int64_t fid, const std::string& url,
                                            const std::string& checksum,
                                            std::shared_ptr<UserFunctionCacheEntry>& output_entry,
                                            LibType type) {
-    std::shared_ptr<UserFunctionCacheEntry> entry = nullptr;
-    std::string file_name = _get_file_name_from_url(url);
-    {
-        std::lock_guard<std::mutex> l(_cache_lock);
-        auto it = _entry_map.find(fid);
-        if (it != _entry_map.end()) {
-            entry = it->second;
-        } else {
-            entry = UserFunctionCacheEntry::create_shared(
-                    fid, checksum, _make_lib_file(fid, checksum, type, file_name), type);
-            _entry_map.emplace(fid, entry);
-        }
-    }
-    auto st = _load_cache_entry(url, entry);
-    if (!st.ok()) {
-        LOG(WARNING) << "fail to load cache entry, fid=" << fid << " " << file_name << " " << url;
-        // if we load a cache entry failed, I think we should delete this entry cache
-        // even if this cache was valid before.
-        _destroy_cache_entry(entry);
-        return st;
-    }
-
-    output_entry = entry;
+    // std::shared_ptr<UserFunctionCacheEntry> entry = nullptr;
+    // std::string file_name = _get_file_name_from_url(url);
+    // {
+    //     std::lock_guard<std::mutex> l(_cache_lock);
+    //     auto it = _entry_map.find(fid);
+    //     if (it != _entry_map.end()) {
+    //         entry = it->second;
+    //     } else {
+    //         entry = UserFunctionCacheEntry::create_shared(
+    //                 fid, checksum, _make_lib_file(fid, checksum, type, file_name), type);
+    //         _entry_map.emplace(fid, entry);
+    //     }
+    // }
+    // auto st = _load_cache_entry(url, entry);
+    // if (!st.ok()) {
+    //     LOG(WARNING) << "fail to load cache entry, fid=" << fid << " " << file_name << " " << url;
+    //     // if we load a cache entry failed, I think we should delete this entry cache
+    //     // even if this cache was valid before.
+    //     _destroy_cache_entry(entry);
+    //     return st;
+    // }
+    //
+    // output_entry = entry;
     return Status::OK();
 }
 
@@ -240,85 +239,85 @@ void UserFunctionCache::_destroy_cache_entry(std::shared_ptr<UserFunctionCacheEn
 
 Status UserFunctionCache::_load_cache_entry(const std::string& url,
                                             std::shared_ptr<UserFunctionCacheEntry> entry) {
-    if (entry->is_loaded.load()) {
-        return Status::OK();
-    }
-
-    std::unique_lock<std::mutex> l(entry->load_lock);
-    if (!entry->is_downloaded) {
-        RETURN_IF_ERROR(_download_lib(url, entry));
-    }
-
-    if (entry->type == LibType::SO) {
-        RETURN_IF_ERROR(_load_cache_entry_internal(entry));
-    } else if (entry->type != LibType::JAR) {
-        return Status::InvalidArgument(
-                "Unsupported lib type! Make sure your lib type is one of 'so' and 'jar'!");
-    }
+    // if (entry->is_loaded.load()) {
+    //     return Status::OK();
+    // }
+    //
+    // std::unique_lock<std::mutex> l(entry->load_lock);
+    // if (!entry->is_downloaded) {
+    //     RETURN_IF_ERROR(_download_lib(url, entry));
+    // }
+    //
+    // if (entry->type == LibType::SO) {
+    //     RETURN_IF_ERROR(_load_cache_entry_internal(entry));
+    // } else if (entry->type != LibType::JAR) {
+    //     return Status::InvalidArgument(
+    //             "Unsupported lib type! Make sure your lib type is one of 'so' and 'jar'!");
+    // }
     return Status::OK();
 }
 
 // entry's lock must be held
 Status UserFunctionCache::_download_lib(const std::string& url,
                                         std::shared_ptr<UserFunctionCacheEntry> entry) {
-    DCHECK(!entry->is_downloaded);
-
-    // get local path to save library
-    std::string tmp_file = entry->lib_file + ".tmp";
-    auto fp_closer = [](FILE* fp) { fclose(fp); };
-    std::unique_ptr<FILE, decltype(fp_closer)> fp(fopen(tmp_file.c_str(), "w"), fp_closer);
-    if (fp == nullptr) {
-        LOG(WARNING) << "fail to open file, file=" << tmp_file;
-        return Status::InternalError("fail to open file");
-    }
-
-    std::string real_url;
-    RETURN_IF_ERROR(_get_real_url(url, &real_url));
-    Md5Digest digest;
-    HttpClient client;
-    int64_t file_size = 0;
-    RETURN_IF_ERROR(client.init(real_url));
-    Status status;
-    auto download_cb = [&status, &tmp_file, &fp, &digest, &file_size](const void* data,
-                                                                      size_t length) {
-        digest.update(data, length);
-        file_size = file_size + length;
-        auto res = fwrite(data, length, 1, fp.get());
-        if (res != 1) {
-            LOG(WARNING) << "fail to write data to file, file=" << tmp_file
-                         << ", error=" << ferror(fp.get());
-            status = Status::InternalError("fail to write data when download");
-            return false;
-        }
-        return true;
-    };
-    RETURN_IF_ERROR(client.execute(download_cb));
-    RETURN_IF_ERROR(status);
-    digest.digest();
-    if (!iequal(digest.hex(), entry->checksum)) {
-        fmt::memory_buffer error_msg;
-        fmt::format_to(error_msg,
-                       " The checksum is not equal of {}. The init info of first create entry is:"
-                       "{} But download file check_sum is: {}, file_size is: {}.",
-                       url, entry->debug_string(), digest.hex(), file_size);
-        std::string error(fmt::to_string(error_msg));
-        LOG(WARNING) << error;
-        return Status::InternalError(error);
-    }
-    // close this file
-    fp.reset();
-
-    // rename temporary file to library file
-    auto ret = rename(tmp_file.c_str(), entry->lib_file.c_str());
-    if (ret != 0) {
-        char buf[64];
-        LOG(WARNING) << "fail to rename file from=" << tmp_file << ", to=" << entry->lib_file
-                     << ", errno=" << errno << ", errmsg=" << strerror_r(errno, buf, 64);
-        return Status::InternalError("fail to rename file");
-    }
-
-    // check download
-    entry->is_downloaded = true;
+//     DCHECK(!entry->is_downloaded);
+//
+//     // get local path to save library
+//     std::string tmp_file = entry->lib_file + ".tmp";
+//     auto fp_closer = [](FILE* fp) { fclose(fp); };
+//     std::unique_ptr<FILE, decltype(fp_closer)> fp(fopen(tmp_file.c_str(), "w"), fp_closer);
+//     if (fp == nullptr) {
+//         LOG(WARNING) << "fail to open file, file=" << tmp_file;
+//         return Status::InternalError("fail to open file");
+//     }
+//
+//     std::string real_url;
+//     RETURN_IF_ERROR(_get_real_url(url, &real_url));
+//     Md5Digest digest;
+//     HttpClient client;
+//     int64_t file_size = 0;
+//     RETURN_IF_ERROR(client.init(real_url));
+//     Status status;
+//     auto download_cb = [&status, &tmp_file, &fp, &digest, &file_size](const void* data,
+//                                                                       size_t length) {
+//         digest.update(data, length);
+//         file_size = file_size + length;
+//         auto res = fwrite(data, length, 1, fp.get());
+//         if (res != 1) {
+//             LOG(WARNING) << "fail to write data to file, file=" << tmp_file
+//                          << ", error=" << ferror(fp.get());
+//             status = Status::InternalError("fail to write data when download");
+//             return false;
+//         }
+//         return true;
+//     };
+//     RETURN_IF_ERROR(client.execute(download_cb));
+//     RETURN_IF_ERROR(status);
+//     digest.digest();
+//     if (!iequal(digest.hex(), entry->checksum)) {
+//         fmt::memory_buffer error_msg;
+//         fmt::format_to(error_msg,
+//                        " The checksum is not equal of {}. The init info of first create entry is:"
+//                        "{} But download file check_sum is: {}, file_size is: {}.",
+//                        url, entry->debug_string(), digest.hex(), file_size);
+//         std::string error(fmt::to_string(error_msg));
+//         LOG(WARNING) << error;
+//         return Status::InternalError(error);
+//     }
+//     // close this file
+//     fp.reset();
+//
+//     // rename temporary file to library file
+//     auto ret = rename(tmp_file.c_str(), entry->lib_file.c_str());
+//     if (ret != 0) {
+//         char buf[64];
+//         LOG(WARNING) << "fail to rename file from=" << tmp_file << ", to=" << entry->lib_file
+//                      << ", errno=" << errno << ", errmsg=" << strerror_r(errno, buf, 64);
+//         return Status::InternalError("fail to rename file");
+//     }
+//
+//     // check download
+//     entry->is_downloaded = true;
     return Status::OK();
 }
 

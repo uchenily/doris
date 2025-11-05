@@ -113,20 +113,6 @@ uint64_t get_fragment_last_active_time() {
     return g_fragment_last_active_time.get_value();
 }
 
-std::string to_load_error_http_path(const std::string& file_name) {
-    if (file_name.empty()) {
-        return "";
-    }
-    if (file_name.compare(0, 4, "http") == 0) {
-        return file_name;
-    }
-    std::stringstream url;
-    url << "http://" << get_host_port(BackendOptions::get_localhost(), config::webserver_port)
-        << "/api/_load_error_log?"
-        << "file=" << file_name;
-    return url.str();
-}
-
 using apache::thrift::TException;
 using apache::thrift::transport::TTransportException;
 
@@ -343,14 +329,6 @@ void FragmentMgr::stop() {
     _pipeline_map.clear();
 }
 
-std::string FragmentMgr::to_http_path(const std::string& file_name) {
-    std::stringstream url;
-    url << "http://" << BackendOptions::get_localhost() << ":" << config::webserver_port
-        << "/api/_download_load?"
-        << "token=" << _exec_env->token() << "&file=" << file_name;
-    return url.str();
-}
-
 Status FragmentMgr::trigger_pipeline_context_report(
         const ReportStatusRequest req, std::shared_ptr<pipeline::PipelineFragmentContext>&& ctx) {
     return _thread_pool->submit_func([this, req, ctx]() {
@@ -414,9 +392,9 @@ void FragmentMgr::coordinator_callback(const ReportStatusRequest& req) {
         DCHECK(!req.runtime_states.empty());
         if (!req.runtime_state->output_files().empty()) {
             params.__isset.delta_urls = true;
-            for (auto& it : req.runtime_state->output_files()) {
-                params.delta_urls.push_back(to_http_path(it));
-            }
+            // for (auto& it : req.runtime_state->output_files()) {
+            //     params.delta_urls.push_back(to_http_path(it));
+            // }
         }
         if (!params.delta_urls.empty()) {
             params.__isset.delta_urls = true;

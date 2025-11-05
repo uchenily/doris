@@ -63,7 +63,6 @@
 #include "common/signal_handler.h"
 #include "common/status.h"
 #include "exec/rowid_fetcher.h"
-#include "http/http_client.h"
 #include "io/fs/local_file_system.h"
 #include "io/fs/stream_load_pipe.h"
 #include "io/io_common.h"
@@ -139,7 +138,7 @@ namespace doris {
 #include "common/compile_check_avoid_begin.h"
 using namespace ErrorCode;
 
-const uint32_t DOWNLOAD_FILE_MAX_RETRY = 3;
+// const uint32_t DOWNLOAD_FILE_MAX_RETRY = 3;
 
 DEFINE_GAUGE_METRIC_PROTOTYPE_2ARG(heavy_work_pool_queue_size, MetricUnit::NOUNIT);
 DEFINE_GAUGE_METRIC_PROTOTYPE_2ARG(light_work_pool_queue_size, MetricUnit::NOUNIT);
@@ -1795,28 +1794,29 @@ static std::string construct_url(const std::string& host_port, const std::string
 
 static Status download_file_action(std::string& remote_file_url, std::string& local_file_path,
                                    uint64_t estimate_timeout, uint64_t file_size) {
-    auto download_cb = [remote_file_url, estimate_timeout, local_file_path,
-                        file_size](HttpClient* client) {
-        RETURN_IF_ERROR(client->init(remote_file_url));
-        client->set_timeout_ms(estimate_timeout * 1000);
-        RETURN_IF_ERROR(client->download(local_file_path));
-
-        if (file_size > 0) {
-            // Check file length
-            uint64_t local_file_size = std::filesystem::file_size(local_file_path);
-            if (local_file_size != file_size) {
-                LOG(WARNING) << "failed to pull rowset for slave replica. download file "
-                                "length error"
-                             << ", remote_path=" << remote_file_url << ", file_size=" << file_size
-                             << ", local_file_size=" << local_file_size;
-                return Status::InternalError("downloaded file size is not equal");
-            }
-        }
-
-        return io::global_local_filesystem()->permission(local_file_path,
-                                                         io::LocalFileSystem::PERMS_OWNER_RW);
-    };
-    return HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, download_cb);
+    // auto download_cb = [remote_file_url, estimate_timeout, local_file_path,
+    //                     file_size](HttpClient* client) {
+    //     RETURN_IF_ERROR(client->init(remote_file_url));
+    //     client->set_timeout_ms(estimate_timeout * 1000);
+    //     RETURN_IF_ERROR(client->download(local_file_path));
+    //
+    //     if (file_size > 0) {
+    //         // Check file length
+    //         uint64_t local_file_size = std::filesystem::file_size(local_file_path);
+    //         if (local_file_size != file_size) {
+    //             LOG(WARNING) << "failed to pull rowset for slave replica. download file "
+    //                             "length error"
+    //                          << ", remote_path=" << remote_file_url << ", file_size=" << file_size
+    //                          << ", local_file_size=" << local_file_size;
+    //             return Status::InternalError("downloaded file size is not equal");
+    //         }
+    //     }
+    //
+    //     return io::global_local_filesystem()->permission(local_file_path,
+    //                                                      io::LocalFileSystem::PERMS_OWNER_RW);
+    // };
+    // return HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, download_cb);
+    return Status::OK();
 }
 
 void PInternalServiceImpl::request_slave_tablet_pull_rowset(
@@ -2192,88 +2192,88 @@ void PInternalService::group_commit_insert(google::protobuf::RpcController* cont
                                            const PGroupCommitInsertRequest* request,
                                            PGroupCommitInsertResponse* response,
                                            google::protobuf::Closure* done) {
-    TUniqueId load_id;
-    load_id.__set_hi(request->load_id().hi());
-    load_id.__set_lo(request->load_id().lo());
-    std::shared_ptr<std::mutex> lock = std::make_shared<std::mutex>();
-    std::shared_ptr<bool> is_done = std::make_shared<bool>(false);
-    bool ret = _heavy_work_pool.try_offer([this, request, response, done, load_id, lock,
-                                           is_done]() {
-        brpc::ClosureGuard closure_guard(done);
-        std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
-        auto pipe = std::make_shared<io::StreamLoadPipe>(
-                io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
-                -1 /* total_length */, true /* use_proto */);
-        ctx->pipe = pipe;
-        Status st = _exec_env->new_load_stream_mgr()->put(load_id, ctx);
-        if (st.ok()) {
-            try {
-                st = _exec_plan_fragment_impl(
-                        request->exec_plan_fragment_request().request(),
-                        request->exec_plan_fragment_request().version(),
-                        request->exec_plan_fragment_request().compact(),
-                        [&, response, done, load_id, lock, is_done](RuntimeState* state,
-                                                                    Status* status) {
-                            std::lock_guard<std::mutex> lock1(*lock);
-                            if (*is_done) {
-                                return;
-                            }
-                            *is_done = true;
-                            brpc::ClosureGuard cb_closure_guard(done);
-                            response->set_label(state->import_label());
-                            response->set_txn_id(state->wal_id());
-                            response->set_loaded_rows(state->num_rows_load_success());
-                            response->set_filtered_rows(state->num_rows_load_filtered());
-                            status->to_protobuf(response->mutable_status());
-                            if (!state->get_error_log_file_path().empty()) {
-                                response->set_error_url(
-                                        to_load_error_http_path(state->get_error_log_file_path()));
-                            }
-                            if (!state->get_first_error_msg().empty()) {
-                                response->set_first_error_msg(state->get_first_error_msg());
-                            }
-                            _exec_env->new_load_stream_mgr()->remove(load_id);
-                        });
-            } catch (const Exception& e) {
-                st = e.to_status();
-            } catch (const std::exception& e) {
-                st = Status::Error(ErrorCode::INTERNAL_ERROR, e.what());
-            } catch (...) {
-                st = Status::Error(ErrorCode::INTERNAL_ERROR,
-                                   "_exec_plan_fragment_impl meet unknown error");
-            }
-            if (!st.ok()) {
-                LOG(WARNING) << "exec plan fragment failed, load_id=" << print_id(load_id)
-                             << ", errmsg=" << st;
-                std::lock_guard<std::mutex> lock1(*lock);
-                if (*is_done) {
-                    closure_guard.release();
-                } else {
-                    *is_done = true;
-                    st.to_protobuf(response->mutable_status());
-                    _exec_env->new_load_stream_mgr()->remove(load_id);
-                }
-            } else {
-                closure_guard.release();
-                for (int i = 0; i < request->data().size(); ++i) {
-                    std::unique_ptr<PDataRow> row(new PDataRow());
-                    row->CopyFrom(request->data(i));
-                    st = pipe->append(std::move(row));
-                    if (!st.ok()) {
-                        break;
-                    }
-                }
-                if (st.ok()) {
-                    static_cast<void>(pipe->finish());
-                }
-            }
-        }
-    });
-    if (!ret) {
-        _exec_env->new_load_stream_mgr()->remove(load_id);
-        offer_failed(response, done, _heavy_work_pool);
-        return;
-    }
+//     TUniqueId load_id;
+//     load_id.__set_hi(request->load_id().hi());
+//     load_id.__set_lo(request->load_id().lo());
+//     std::shared_ptr<std::mutex> lock = std::make_shared<std::mutex>();
+//     std::shared_ptr<bool> is_done = std::make_shared<bool>(false);
+//     bool ret = _heavy_work_pool.try_offer([this, request, response, done, load_id, lock,
+//                                            is_done]() {
+//         brpc::ClosureGuard closure_guard(done);
+//         std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
+//         auto pipe = std::make_shared<io::StreamLoadPipe>(
+//                 io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
+//                 -1 /* total_length */, true /* use_proto */);
+//         ctx->pipe = pipe;
+//         Status st = _exec_env->new_load_stream_mgr()->put(load_id, ctx);
+//         if (st.ok()) {
+//             try {
+//                 st = _exec_plan_fragment_impl(
+//                         request->exec_plan_fragment_request().request(),
+//                         request->exec_plan_fragment_request().version(),
+//                         request->exec_plan_fragment_request().compact(),
+//                         [&, response, done, load_id, lock, is_done](RuntimeState* state,
+//                                                                     Status* status) {
+//                             std::lock_guard<std::mutex> lock1(*lock);
+//                             if (*is_done) {
+//                                 return;
+//                             }
+//                             *is_done = true;
+//                             brpc::ClosureGuard cb_closure_guard(done);
+//                             response->set_label(state->import_label());
+//                             response->set_txn_id(state->wal_id());
+//                             response->set_loaded_rows(state->num_rows_load_success());
+//                             response->set_filtered_rows(state->num_rows_load_filtered());
+//                             status->to_protobuf(response->mutable_status());
+//                             if (!state->get_error_log_file_path().empty()) {
+//                                 response->set_error_url(
+//                                         to_load_error_http_path(state->get_error_log_file_path()));
+//                             }
+//                             if (!state->get_first_error_msg().empty()) {
+//                                 response->set_first_error_msg(state->get_first_error_msg());
+//                             }
+//                             _exec_env->new_load_stream_mgr()->remove(load_id);
+//                         });
+//             } catch (const Exception& e) {
+//                 st = e.to_status();
+//             } catch (const std::exception& e) {
+//                 st = Status::Error(ErrorCode::INTERNAL_ERROR, e.what());
+//             } catch (...) {
+//                 st = Status::Error(ErrorCode::INTERNAL_ERROR,
+//                                    "_exec_plan_fragment_impl meet unknown error");
+//             }
+//             if (!st.ok()) {
+//                 LOG(WARNING) << "exec plan fragment failed, load_id=" << print_id(load_id)
+//                              << ", errmsg=" << st;
+//                 std::lock_guard<std::mutex> lock1(*lock);
+//                 if (*is_done) {
+//                     closure_guard.release();
+//                 } else {
+//                     *is_done = true;
+//                     st.to_protobuf(response->mutable_status());
+//                     _exec_env->new_load_stream_mgr()->remove(load_id);
+//                 }
+//             } else {
+//                 closure_guard.release();
+//                 for (int i = 0; i < request->data().size(); ++i) {
+//                     std::unique_ptr<PDataRow> row(new PDataRow());
+//                     row->CopyFrom(request->data(i));
+//                     st = pipe->append(std::move(row));
+//                     if (!st.ok()) {
+//                         break;
+//                     }
+//                 }
+//                 if (st.ok()) {
+//                     static_cast<void>(pipe->finish());
+//                 }
+//             }
+//         }
+//     });
+//     if (!ret) {
+//         _exec_env->new_load_stream_mgr()->remove(load_id);
+//         offer_failed(response, done, _heavy_work_pool);
+//         return;
+//     }
 };
 
 void PInternalService::get_wal_queue_size(google::protobuf::RpcController* controller,

@@ -77,7 +77,6 @@ void register_aggregate_function_covar_samp(AggregateFunctionSimpleFactory& fact
 void register_aggregate_function_skewness(AggregateFunctionSimpleFactory& factory);
 void register_aggregate_function_kurtosis(AggregateFunctionSimpleFactory& factory);
 void register_aggregate_function_percentile_reservoir(AggregateFunctionSimpleFactory& factory);
-void register_aggregate_function_ai_agg(AggregateFunctionSimpleFactory& factory);
 void register_aggregate_function_bool_union(AggregateFunctionSimpleFactory& factory);
 
 AggregateFunctionSimpleFactory& AggregateFunctionSimpleFactory::instance() {
@@ -133,7 +132,6 @@ AggregateFunctionSimpleFactory& AggregateFunctionSimpleFactory::instance() {
         register_aggregate_function_skewness(instance);
         register_aggregate_function_kurtosis(instance);
         register_aggregate_function_percentile_reservoir(instance);
-        register_aggregate_function_ai_agg(instance);
         register_aggregate_function_bool_union(instance);
         // Register foreach and foreachv2 functions
         register_aggregate_function_combinator_foreach(instance);

@@ -24,7 +24,6 @@
 #include "gen_cpp/FrontendService.h"
 #include "gen_cpp/FrontendService_types.h"
 #include "gen_cpp/HeartbeatService_types.h"
-#include "http/action/http_stream.h"
 #include "olap/wal/wal_info.h"
 #include "runtime/exec_env.h"
 #include "runtime/stream_load/stream_load_context.h"
@@ -61,7 +60,6 @@ private:
     ExecEnv* _exec_env;
     int64_t _db_id;
     int64_t _table_id;
-    std::shared_ptr<HttpStreamAction> _http_stream_action;
     mutable std::mutex _replay_wal_lock;
     // key is wal_path
     std::map<std::string, std::shared_ptr<WalInfo>> _replay_wal_map;

@@ -35,7 +35,6 @@
 #include "boost/lexical_cast.hpp"
 #include "common/config.h"
 #include "common/logging.h"
-#include "http/http_client.h"
 #include "olap/data_dir.h"
 #include "olap/olap_common.h"
 #include "olap/olap_define.h"
@@ -57,8 +56,8 @@ using std::vector;
 namespace doris {
 namespace {
 constexpr uint32_t PUSH_MAX_RETRY = 1;
-constexpr uint32_t MAX_RETRY = 3;
-constexpr uint32_t DEFAULT_DOWNLOAD_TIMEOUT = 3600;
+// constexpr uint32_t MAX_RETRY = 3;
+// constexpr uint32_t DEFAULT_DOWNLOAD_TIMEOUT = 3600;
 } // namespace
 
 using namespace ErrorCode;
@@ -167,100 +166,100 @@ void EngineBatchLoadTask::_get_file_name_from_path(const string& file_path, stri
 
 Status EngineBatchLoadTask::_process() {
     Status status = Status::OK();
-    if (!_is_init) {
-        return Status::InternalError("Tablet has not init yet");
-    }
-    // Remote file not empty, need to download
-    if (_push_req.__isset.http_file_path) {
-        // Get file length and timeout
-        uint64_t file_size = 0;
-        uint64_t estimate_time_out = DEFAULT_DOWNLOAD_TIMEOUT;
-        if (_push_req.__isset.http_file_size) {
-            file_size = _push_req.http_file_size;
-            estimate_time_out = file_size / config::download_low_speed_limit_kbps / 1024;
-        }
-        if (estimate_time_out < config::download_low_speed_time) {
-            estimate_time_out = config::download_low_speed_time;
-        }
-        bool is_timeout = false;
-        auto download_cb = [this, estimate_time_out, file_size, &is_timeout](HttpClient* client) {
-            // Check timeout and set timeout
-            time_t now = time(nullptr);
-            if (_push_req.timeout > 0 && _push_req.timeout < now) {
-                // return status to break this callback
-                VLOG_NOTICE << "check time out. time_out:" << _push_req.timeout << ", now:" << now;
-                is_timeout = true;
-                return Status::OK();
-            }
-
-            RETURN_IF_ERROR(client->init(_remote_file_path));
-            // sent timeout
-            uint64_t timeout = _push_req.timeout > 0 ? _push_req.timeout - now : 0;
-            if (timeout > 0 && timeout < estimate_time_out) {
-                client->set_timeout_ms(timeout * 1000);
-            } else {
-                client->set_timeout_ms(estimate_time_out * 1000);
-            }
-
-            // download remote file
-            RETURN_IF_ERROR(client->download(_local_file_path));
-
-            // check file size
-            if (_push_req.__isset.http_file_size) {
-                // Check file size
-                uint64_t local_file_size = std::filesystem::file_size(_local_file_path);
-                if (file_size != local_file_size) {
-                    return Status::InternalError(
-                            "download_file size error. file_size={}, local_file_size={}", file_size,
-                            local_file_size);
-                }
-            }
-            // NOTE: change http_file_path is not good design
-            _push_req.http_file_path = _local_file_path;
-            return Status::OK();
-        };
-
-        MonotonicStopWatch stopwatch;
-        stopwatch.start();
-        status = HttpClient::execute_with_retry(MAX_RETRY, 1, download_cb);
-        auto cost = stopwatch.elapsed_time();
-        if (cost <= 0) {
-            cost = 1;
-        }
-        if (status.ok() && !is_timeout) {
-            double rate = -1.0;
-            if (_push_req.__isset.http_file_size) {
-                rate = (double)_push_req.http_file_size / (cost / 1000 / 1000 / 1000) / 1024;
-            }
-            LOG(INFO) << "succeed to download file. local_file=" << _local_file_path
-                      << ", remote_file=" << _remote_file_path << ", tablet_id"
-                      << _push_req.tablet_id << ", cost=" << cost / 1000 << "us, file_size"
-                      << _push_req.http_file_size << ", download rage:" << rate << "KB/s";
-        } else {
-            LOG(WARNING) << "download file failed. remote_file=" << _remote_file_path
-                         << ", tablet=" << _push_req.tablet_id << ", cost=" << cost / 1000
-                         << "us, is_timeout=" << is_timeout;
-        }
-    }
-
-    if (status.ok()) {
-        // Load delta file
-        time_t push_begin = time(nullptr);
-        status = _push(_push_req, _tablet_infos);
-        time_t push_finish = time(nullptr);
-        LOG(INFO) << "Push finish, cost time: " << (push_finish - push_begin);
-        if (status.is<PUSH_TRANSACTION_ALREADY_EXIST>()) {
-            status = Status::OK();
-        }
-    }
-
-    // Delete download file
-    if (std::filesystem::exists(_local_file_path)) {
-        if (remove(_local_file_path.c_str()) == -1) {
-            LOG(WARNING) << "can not remove file=" << _local_file_path;
-        }
-    }
-
+    // if (!_is_init) {
+    //     return Status::InternalError("Tablet has not init yet");
+    // }
+    // // Remote file not empty, need to download
+    // if (_push_req.__isset.http_file_path) {
+    //     // Get file length and timeout
+    //     uint64_t file_size = 0;
+    //     uint64_t estimate_time_out = DEFAULT_DOWNLOAD_TIMEOUT;
+    //     if (_push_req.__isset.http_file_size) {
+    //         file_size = _push_req.http_file_size;
+    //         estimate_time_out = file_size / config::download_low_speed_limit_kbps / 1024;
+    //     }
+    //     if (estimate_time_out < config::download_low_speed_time) {
+    //         estimate_time_out = config::download_low_speed_time;
+    //     }
+    //     bool is_timeout = false;
+    //     auto download_cb = [this, estimate_time_out, file_size, &is_timeout](HttpClient* client) {
+    //         // Check timeout and set timeout
+    //         time_t now = time(nullptr);
+    //         if (_push_req.timeout > 0 && _push_req.timeout < now) {
+    //             // return status to break this callback
+    //             VLOG_NOTICE << "check time out. time_out:" << _push_req.timeout << ", now:" << now;
+    //             is_timeout = true;
+    //             return Status::OK();
+    //         }
+    //
+    //         RETURN_IF_ERROR(client->init(_remote_file_path));
+    //         // sent timeout
+    //         uint64_t timeout = _push_req.timeout > 0 ? _push_req.timeout - now : 0;
+    //         if (timeout > 0 && timeout < estimate_time_out) {
+    //             client->set_timeout_ms(timeout * 1000);
+    //         } else {
+    //             client->set_timeout_ms(estimate_time_out * 1000);
+    //         }
+    //
+    //         // download remote file
+    //         RETURN_IF_ERROR(client->download(_local_file_path));
+    //
+    //         // check file size
+    //         if (_push_req.__isset.http_file_size) {
+    //             // Check file size
+    //             uint64_t local_file_size = std::filesystem::file_size(_local_file_path);
+    //             if (file_size != local_file_size) {
+    //                 return Status::InternalError(
+    //                         "download_file size error. file_size={}, local_file_size={}", file_size,
+    //                         local_file_size);
+    //             }
+    //         }
+    //         // NOTE: change http_file_path is not good design
+    //         _push_req.http_file_path = _local_file_path;
+    //         return Status::OK();
+    //     };
+    //
+    //     MonotonicStopWatch stopwatch;
+    //     stopwatch.start();
+    //     status = HttpClient::execute_with_retry(MAX_RETRY, 1, download_cb);
+    //     auto cost = stopwatch.elapsed_time();
+    //     if (cost <= 0) {
+    //         cost = 1;
+    //     }
+    //     if (status.ok() && !is_timeout) {
+    //         double rate = -1.0;
+    //         if (_push_req.__isset.http_file_size) {
+    //             rate = (double)_push_req.http_file_size / (cost / 1000 / 1000 / 1000) / 1024;
+    //         }
+    //         LOG(INFO) << "succeed to download file. local_file=" << _local_file_path
+    //                   << ", remote_file=" << _remote_file_path << ", tablet_id"
+    //                   << _push_req.tablet_id << ", cost=" << cost / 1000 << "us, file_size"
+    //                   << _push_req.http_file_size << ", download rage:" << rate << "KB/s";
+    //     } else {
+    //         LOG(WARNING) << "download file failed. remote_file=" << _remote_file_path
+    //                      << ", tablet=" << _push_req.tablet_id << ", cost=" << cost / 1000
+    //                      << "us, is_timeout=" << is_timeout;
+    //     }
+    // }
+    //
+    // if (status.ok()) {
+    //     // Load delta file
+    //     time_t push_begin = time(nullptr);
+    //     status = _push(_push_req, _tablet_infos);
+    //     time_t push_finish = time(nullptr);
+    //     LOG(INFO) << "Push finish, cost time: " << (push_finish - push_begin);
+    //     if (status.is<PUSH_TRANSACTION_ALREADY_EXIST>()) {
+    //         status = Status::OK();
+    //     }
+    // }
+    //
+    // // Delete download file
+    // if (std::filesystem::exists(_local_file_path)) {
+    //     if (remove(_local_file_path.c_str()) == -1) {
+    //         LOG(WARNING) << "can not remove file=" << _local_file_path;
+    //     }
+    // }
+    //
     return status;
 }
 

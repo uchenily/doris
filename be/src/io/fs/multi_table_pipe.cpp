@@ -275,7 +275,8 @@ Status MultiTablePipe::exec_plans(ExecEnv* exec_env,
                         std::lock_guard<std::mutex> l(_callback_lock);
                         if (!state->get_error_log_file_path().empty()) {
                             _ctx->error_url =
-                                    to_load_error_http_path(state->get_error_log_file_path());
+                                    // to_load_error_http_path(state->get_error_log_file_path());
+                                    "";
                         }
                         if (!state->get_first_error_msg().empty()) {
                             _ctx->first_error_msg = state->get_first_error_msg();

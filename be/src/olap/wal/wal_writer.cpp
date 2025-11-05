@@ -42,42 +42,42 @@ WalWriter::WalWriter(const std::string& file_name) : _file_name(file_name) {}
 WalWriter::~WalWriter() {}
 
 Status determine_wal_fs(int64_t db_id, int64_t tb_id, io::FileSystemSPtr& fs) {
-    if (!config::enable_wal_tde) {
-        fs = io::global_local_filesystem();
-        return Status::OK();
-    }
-
-#ifndef BE_TEST
-    TNetworkAddress master_addr = ExecEnv::GetInstance()->cluster_info()->master_fe_addr;
-    TGetTableTDEInfoRequest req;
-    req.__set_db_id(db_id);
-    req.__set_table_id(tb_id);
-    TGetTableTDEInfoResult ret;
-    RETURN_IF_ERROR(ThriftRpcHelper::rpc<FrontendServiceClient>(
-            master_addr.hostname, master_addr.port,
-            [&req, &ret](FrontendServiceConnection& client) {
-                client->getTableTDEInfo(ret, req);
-            }));
-    if (auto st = Status::create(ret.status); !st) {
-        return st;
-    }
-    auto encrypt_algorithm = [&ret]() -> EncryptionAlgorithmPB {
-        switch (ret.algorithm) {
-        case doris::TEncryptionAlgorithm::AES256:
-            return EncryptionAlgorithmPB::AES_256_CTR;
-        case doris::TEncryptionAlgorithm::SM4:
-            return EncryptionAlgorithmPB::SM4_128_CTR;
-        default:
-            return EncryptionAlgorithmPB::PLAINTEXT;
-        }
-    }();
-
-    auto local_fs = io::global_local_filesystem();
-    fs = io::make_file_system(local_fs, encrypt_algorithm);
-#else
-    fs = io::global_local_filesystem();
-#endif
-
+//     if (!config::enable_wal_tde) {
+//         fs = io::global_local_filesystem();
+//         return Status::OK();
+//     }
+//
+// #ifndef BE_TEST
+//     TNetworkAddress master_addr = ExecEnv::GetInstance()->cluster_info()->master_fe_addr;
+//     TGetTableTDEInfoRequest req;
+//     req.__set_db_id(db_id);
+//     req.__set_table_id(tb_id);
+//     TGetTableTDEInfoResult ret;
+//     RETURN_IF_ERROR(ThriftRpcHelper::rpc<FrontendServiceClient>(
+//             master_addr.hostname, master_addr.port,
+//             [&req, &ret](FrontendServiceConnection& client) {
+//                 client->getTableTDEInfo(ret, req);
+//             }));
+//     if (auto st = Status::create(ret.status); !st) {
+//         return st;
+//     }
+//     auto encrypt_algorithm = [&ret]() -> EncryptionAlgorithmPB {
+//         switch (ret.algorithm) {
+//         case doris::TEncryptionAlgorithm::AES256:
+//             return EncryptionAlgorithmPB::AES_256_CTR;
+//         case doris::TEncryptionAlgorithm::SM4:
+//             return EncryptionAlgorithmPB::SM4_128_CTR;
+//         default:
+//             return EncryptionAlgorithmPB::PLAINTEXT;
+//         }
+//     }();
+//
+//     auto local_fs = io::global_local_filesystem();
+//     fs = io::make_file_system(local_fs, encrypt_algorithm);
+// #else
+//     fs = io::global_local_filesystem();
+// #endif
+//
     return Status::OK();
 }
 

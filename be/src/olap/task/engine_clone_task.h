@@ -97,7 +97,7 @@ private:
     const TCloneReq& _clone_req;
     std::vector<TTabletInfo>* _tablet_infos = nullptr;
     int64_t _signature;
-    const ClusterInfo* _cluster_info;
+    // const ClusterInfo* _cluster_info;
     int64_t _copy_size;
     int64_t _copy_time_ms;
     std::vector<PendingRowsetGuard> _pending_rs_guards;

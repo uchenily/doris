@@ -75,7 +75,6 @@
 #include "service/backend_options.h"
 #include "service/backend_service.h"
 #include "service/brpc_service.h"
-#include "service/http_service.h"
 #include "util/debug_util.h"
 #include "util/disk_info.h"
 #include "util/mem_info.h"
@@ -571,10 +570,10 @@ int main(int argc, char** argv) {
     stop_work_if_error(status, "BRPC service did not start correctly, exiting");
 
     // 3. http service
-    std::unique_ptr<doris::HttpService> http_service = std::make_unique<doris::HttpService>(
-            exec_env, doris::config::webserver_port, doris::config::webserver_num_workers);
-    status = http_service->start();
-    stop_work_if_error(status, "Doris Be http service did not start correctly, exiting");
+    // std::unique_ptr<doris::HttpService> http_service = std::make_unique<doris::HttpService>(
+    //         exec_env, doris::config::webserver_port, doris::config::webserver_num_workers);
+    // status = http_service->start();
+    // stop_work_if_error(status, "Doris Be http service did not start correctly, exiting");
 
     // 4. heart beat server
     doris::ClusterInfo* cluster_info = exec_env->cluster_info();
@@ -630,10 +629,10 @@ int main(int argc, char** argv) {
     heartbeat_thrift_server->stop();
     heartbeat_thrift_server.reset(nullptr);
     LOG(INFO) << "Heartbeat server stopped";
-    // TODO(zhiqiang): http_service
-    http_service->stop();
-    http_service.reset(nullptr);
-    LOG(INFO) << "Http service stopped";
+    // // TODO(zhiqiang): http_service
+    // http_service->stop();
+    // http_service.reset(nullptr);
+    // LOG(INFO) << "Http service stopped";
     be_server->stop();
     be_server.reset(nullptr);
     LOG(INFO) << "Be server stopped";

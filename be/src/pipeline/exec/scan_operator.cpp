@@ -25,7 +25,6 @@
 #include <memory>
 
 #include "common/global_types.h"
-#include "pipeline/exec/es_scan_operator.h"
 #include "pipeline/exec/file_scan_operator.h"
 #include "pipeline/exec/group_commit_scan_operator.h"
 #include "pipeline/exec/jdbc_scan_operator.h"
@@ -1397,8 +1396,6 @@ template class ScanOperatorX<JDBCScanLocalState>;
 template class ScanLocalState<JDBCScanLocalState>;
 template class ScanOperatorX<FileScanLocalState>;
 template class ScanLocalState<FileScanLocalState>;
-template class ScanOperatorX<EsScanLocalState>;
-template class ScanLocalState<EsScanLocalState>;
 template class ScanLocalState<MetaScanLocalState>;
 template class ScanOperatorX<MetaScanLocalState>;
 template class ScanOperatorX<GroupCommitLocalState>;

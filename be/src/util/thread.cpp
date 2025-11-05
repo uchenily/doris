@@ -54,7 +54,6 @@
 #include "absl/strings/substitute.h"
 #include "common/config.h"
 #include "common/logging.h"
-#include "http/web_page_handler.h"
 #include "runtime/thread_context.h"
 #include "util/easy_json.h"
 #include "util/os_util.h"
@@ -103,7 +102,7 @@ public:
     // already been removed, this is a no-op.
     void remove_thread(const pthread_t& pthread_id, const std::string& category);
 
-    void display_thread_callback(const WebPageHandler::ArgumentMap& args, EasyJson* ej) const;
+    // void display_thread_callback(const WebPageHandler::ArgumentMap& args, EasyJson* ej) const;
 
 private:
     // Container class for any details we want to capture about a thread
@@ -212,65 +211,65 @@ void ThreadMgr::remove_thread(const pthread_t& pthread_id, const std::string& ca
     _threads_running_metric--;
 }
 
-void ThreadMgr::display_thread_callback(const WebPageHandler::ArgumentMap& args,
-                                        EasyJson* ej) const {
-    if (args.contains("group")) {
-        const auto& category_name = args.at("group");
-        bool requested_all = category_name == "all";
-        ej->Set("requested_thread_group", EasyJson::kObject);
-        (*ej)["group_name"] = escape_for_html_to_string(category_name);
-        (*ej)["requested_all"] = requested_all;
-
-        // The critical section is as short as possible so as to minimize the delay
-        // imposed on new threads that acquire the lock in write mode.
-        std::vector<ThreadDescriptor> descriptors_to_print;
-        if (!requested_all) {
-            std::unique_lock<std::mutex> l(_lock);
-            if (!_thread_categories.contains(category_name)) {
-                return;
-            }
-            for (const auto& elem : _thread_categories.at(category_name)) {
-                descriptors_to_print.emplace_back(elem.second);
-            }
-        } else {
-            std::unique_lock<std::mutex> l(_lock);
-            for (const auto& category : _thread_categories) {
-                for (const auto& elem : category.second) {
-                    descriptors_to_print.emplace_back(elem.second);
-                }
-            }
-        }
-
-        EasyJson found = (*ej).Set("found", EasyJson::kObject);
-        EasyJson threads = found.Set("threads", EasyJson::kArray);
-        for (const auto& desc : descriptors_to_print) {
-            summarize_thread_descriptor(desc, &threads);
-        }
-    } else {
-        // List all thread groups and the number of threads running in each.
-        std::vector<std::pair<std::string, uint64_t>> thread_categories_info;
-        uint64_t running;
-        {
-            std::unique_lock<std::mutex> l(_lock);
-            running = _threads_running_metric;
-            thread_categories_info.reserve(_thread_categories.size());
-            for (const auto& category : _thread_categories) {
-                thread_categories_info.emplace_back(category.first, category.second.size());
-            }
-
-            (*ej)["total_threads_running"] = running;
-            EasyJson groups = ej->Set("groups", EasyJson::kArray);
-            for (const auto& elem : thread_categories_info) {
-                std::string category_arg;
-                url_encode(elem.first, &category_arg);
-                EasyJson group = groups.PushBack(EasyJson::kObject);
-                group["encoded_group_name"] = category_arg;
-                group["group_name"] = elem.first;
-                group["threads_running"] = elem.second;
-            }
-        }
-    }
-}
+// void ThreadMgr::display_thread_callback(const WebPageHandler::ArgumentMap& args,
+//                                         EasyJson* ej) const {
+//     if (args.contains("group")) {
+//         const auto& category_name = args.at("group");
+//         bool requested_all = category_name == "all";
+//         ej->Set("requested_thread_group", EasyJson::kObject);
+//         (*ej)["group_name"] = escape_for_html_to_string(category_name);
+//         (*ej)["requested_all"] = requested_all;
+//
+//         // The critical section is as short as possible so as to minimize the delay
+//         // imposed on new threads that acquire the lock in write mode.
+//         std::vector<ThreadDescriptor> descriptors_to_print;
+//         if (!requested_all) {
+//             std::unique_lock<std::mutex> l(_lock);
+//             if (!_thread_categories.contains(category_name)) {
+//                 return;
+//             }
+//             for (const auto& elem : _thread_categories.at(category_name)) {
+//                 descriptors_to_print.emplace_back(elem.second);
+//             }
+//         } else {
+//             std::unique_lock<std::mutex> l(_lock);
+//             for (const auto& category : _thread_categories) {
+//                 for (const auto& elem : category.second) {
+//                     descriptors_to_print.emplace_back(elem.second);
+//                 }
+//             }
+//         }
+//
+//         EasyJson found = (*ej).Set("found", EasyJson::kObject);
+//         EasyJson threads = found.Set("threads", EasyJson::kArray);
+//         for (const auto& desc : descriptors_to_print) {
+//             summarize_thread_descriptor(desc, &threads);
+//         }
+//     } else {
+//         // List all thread groups and the number of threads running in each.
+//         std::vector<std::pair<std::string, uint64_t>> thread_categories_info;
+//         uint64_t running;
+//         {
+//             std::unique_lock<std::mutex> l(_lock);
+//             running = _threads_running_metric;
+//             thread_categories_info.reserve(_thread_categories.size());
+//             for (const auto& category : _thread_categories) {
+//                 thread_categories_info.emplace_back(category.first, category.second.size());
+//             }
+//
+//             (*ej)["total_threads_running"] = running;
+//             EasyJson groups = ej->Set("groups", EasyJson::kArray);
+//             for (const auto& elem : thread_categories_info) {
+//                 std::string category_arg;
+//                 url_encode(elem.first, &category_arg);
+//                 EasyJson group = groups.PushBack(EasyJson::kObject);
+//                 group["encoded_group_name"] = category_arg;
+//                 group["group_name"] = elem.first;
+//                 group["threads_running"] = elem.second;
+//             }
+//         }
+//     }
+// }
 
 void ThreadMgr::summarize_thread_descriptor(const ThreadMgr::ThreadDescriptor& desc,
                                             EasyJson* ej) const {
@@ -558,11 +557,11 @@ Status ThreadJoiner::join() {
     return Status::Aborted("Timed out after {}ms joining on {}", waited_ms, _thread->_name);
 }
 
-void register_thread_display_page(WebPageHandler* web_page_handler) {
-    web_page_handler->register_template_page(
-            "/threadz", "Threads",
-            std::bind(&ThreadMgr::display_thread_callback, thread_manager.get(),
-                      std::placeholders::_1, std::placeholders::_2),
-            true);
-}
+// void register_thread_display_page(WebPageHandler* web_page_handler) {
+//     web_page_handler->register_template_page(
+//             "/threadz", "Threads",
+//             std::bind(&ThreadMgr::display_thread_callback, thread_manager.get(),
+//                       std::placeholders::_1, std::placeholders::_2),
+//             true);
+// }
 } // namespace doris

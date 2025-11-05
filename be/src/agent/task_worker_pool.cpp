@@ -49,8 +49,6 @@
 #include "cloud/cloud_delete_task.h"
 #include "cloud/cloud_engine_calc_delete_bitmap_task.h"
 #include "cloud/cloud_schema_change_job.h"
-#include "cloud/cloud_snapshot_loader.h"
-#include "cloud/cloud_snapshot_mgr.h"
 #include "cloud/cloud_tablet_mgr.h"
 #include "cloud/config.h"
 #include "common/config.h"
@@ -87,7 +85,6 @@
 #include "runtime/fragment_mgr.h"
 #include "runtime/index_policy/index_policy_mgr.h"
 #include "runtime/memory/global_memory_arbitrator.h"
-#include "runtime/snapshot_loader.h"
 #include "service/backend_options.h"
 #include "util/brpc_client_cache.h"
 #include "util/debug_points.h"
@@ -1271,142 +1268,142 @@ void report_tablet_callback(CloudStorageEngine& engine, const ClusterInfo* clust
 }
 
 void upload_callback(StorageEngine& engine, ExecEnv* env, const TAgentTaskRequest& req) {
-    const auto& upload_request = req.upload_req;
-
-    LOG(INFO) << "get upload task. signature=" << req.signature
-              << ", job_id=" << upload_request.job_id;
-
-    std::map<int64_t, std::vector<std::string>> tablet_files;
-    std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
-            engine, env, upload_request.job_id, req.signature, upload_request.broker_addr,
-            upload_request.broker_prop);
-    SCOPED_ATTACH_TASK(loader->resource_ctx());
-    Status status =
-            loader->init(upload_request.__isset.storage_backend ? upload_request.storage_backend
-                                                                : TStorageBackendType::type::BROKER,
-                         upload_request.__isset.location ? upload_request.location : "");
-    if (status.ok()) {
-        status = loader->upload(upload_request.src_dest_map, &tablet_files);
-    }
-
-    if (!status.ok()) {
-        LOG_WARNING("failed to upload")
-                .tag("signature", req.signature)
-                .tag("job_id", upload_request.job_id)
-                .error(status);
-    } else {
-        LOG_INFO("successfully upload")
-                .tag("signature", req.signature)
-                .tag("job_id", upload_request.job_id);
-    }
-
-    TFinishTaskRequest finish_task_request;
-    finish_task_request.__set_backend(BackendOptions::get_local_backend());
-    finish_task_request.__set_task_type(req.task_type);
-    finish_task_request.__set_signature(req.signature);
-    finish_task_request.__set_task_status(status.to_thrift());
-    finish_task_request.__set_tablet_files(tablet_files);
-
-    finish_task(finish_task_request);
-    remove_task_info(req.task_type, req.signature);
+    // const auto& upload_request = req.upload_req;
+    //
+    // LOG(INFO) << "get upload task. signature=" << req.signature
+    //           << ", job_id=" << upload_request.job_id;
+    //
+    // std::map<int64_t, std::vector<std::string>> tablet_files;
+    // std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
+    //         engine, env, upload_request.job_id, req.signature, upload_request.broker_addr,
+    //         upload_request.broker_prop);
+    // SCOPED_ATTACH_TASK(loader->resource_ctx());
+    // Status status =
+    //         loader->init(upload_request.__isset.storage_backend ? upload_request.storage_backend
+    //                                                             : TStorageBackendType::type::BROKER,
+    //                      upload_request.__isset.location ? upload_request.location : "");
+    // if (status.ok()) {
+    //     status = loader->upload(upload_request.src_dest_map, &tablet_files);
+    // }
+    //
+    // if (!status.ok()) {
+    //     LOG_WARNING("failed to upload")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", upload_request.job_id)
+    //             .error(status);
+    // } else {
+    //     LOG_INFO("successfully upload")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", upload_request.job_id);
+    // }
+    //
+    // TFinishTaskRequest finish_task_request;
+    // finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    // finish_task_request.__set_task_type(req.task_type);
+    // finish_task_request.__set_signature(req.signature);
+    // finish_task_request.__set_task_status(status.to_thrift());
+    // finish_task_request.__set_tablet_files(tablet_files);
+    //
+    // finish_task(finish_task_request);
+    // remove_task_info(req.task_type, req.signature);
 }
 
 void download_callback(StorageEngine& engine, ExecEnv* env, const TAgentTaskRequest& req) {
-    const auto& download_request = req.download_req;
-    LOG(INFO) << "get download task. signature=" << req.signature
-              << ", job_id=" << download_request.job_id
-              << ", task detail: " << apache::thrift::ThriftDebugString(download_request);
-
-    // TODO: download
-    std::vector<int64_t> downloaded_tablet_ids;
-
-    auto status = Status::OK();
-    if (download_request.__isset.remote_tablet_snapshots) {
-        std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
-                engine, env, download_request.job_id, req.signature);
-        status = loader->remote_http_download(download_request.remote_tablet_snapshots,
-                                              &downloaded_tablet_ids);
-    } else {
-        std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
-                engine, env, download_request.job_id, req.signature, download_request.broker_addr,
-                download_request.broker_prop);
-        status = loader->init(download_request.__isset.storage_backend
-                                      ? download_request.storage_backend
-                                      : TStorageBackendType::type::BROKER,
-                              download_request.__isset.location ? download_request.location : "");
-        if (status.ok()) {
-            status = loader->download(download_request.src_dest_map, &downloaded_tablet_ids);
-        }
-    }
-
-    if (!status.ok()) {
-        LOG_WARNING("failed to download")
-                .tag("signature", req.signature)
-                .tag("job_id", download_request.job_id)
-                .error(status);
-    } else {
-        LOG_INFO("successfully download")
-                .tag("signature", req.signature)
-                .tag("job_id", download_request.job_id);
-    }
-
-    TFinishTaskRequest finish_task_request;
-    finish_task_request.__set_backend(BackendOptions::get_local_backend());
-    finish_task_request.__set_task_type(req.task_type);
-    finish_task_request.__set_signature(req.signature);
-    finish_task_request.__set_task_status(status.to_thrift());
-    finish_task_request.__set_downloaded_tablet_ids(downloaded_tablet_ids);
-
-    finish_task(finish_task_request);
-    remove_task_info(req.task_type, req.signature);
+    // const auto& download_request = req.download_req;
+    // LOG(INFO) << "get download task. signature=" << req.signature
+    //           << ", job_id=" << download_request.job_id
+    //           << ", task detail: " << apache::thrift::ThriftDebugString(download_request);
+    //
+    // // TODO: download
+    // std::vector<int64_t> downloaded_tablet_ids;
+    //
+    // auto status = Status::OK();
+    // if (download_request.__isset.remote_tablet_snapshots) {
+    //     std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
+    //             engine, env, download_request.job_id, req.signature);
+    //     status = loader->remote_http_download(download_request.remote_tablet_snapshots,
+    //                                           &downloaded_tablet_ids);
+    // } else {
+    //     std::unique_ptr<SnapshotLoader> loader = std::make_unique<SnapshotLoader>(
+    //             engine, env, download_request.job_id, req.signature, download_request.broker_addr,
+    //             download_request.broker_prop);
+    //     status = loader->init(download_request.__isset.storage_backend
+    //                                   ? download_request.storage_backend
+    //                                   : TStorageBackendType::type::BROKER,
+    //                           download_request.__isset.location ? download_request.location : "");
+    //     if (status.ok()) {
+    //         status = loader->download(download_request.src_dest_map, &downloaded_tablet_ids);
+    //     }
+    // }
+    //
+    // if (!status.ok()) {
+    //     LOG_WARNING("failed to download")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", download_request.job_id)
+    //             .error(status);
+    // } else {
+    //     LOG_INFO("successfully download")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", download_request.job_id);
+    // }
+    //
+    // TFinishTaskRequest finish_task_request;
+    // finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    // finish_task_request.__set_task_type(req.task_type);
+    // finish_task_request.__set_signature(req.signature);
+    // finish_task_request.__set_task_status(status.to_thrift());
+    // finish_task_request.__set_downloaded_tablet_ids(downloaded_tablet_ids);
+    //
+    // finish_task(finish_task_request);
+    // remove_task_info(req.task_type, req.signature);
 }
 
 void download_callback(CloudStorageEngine& engine, ExecEnv* env, const TAgentTaskRequest& req) {
-    const auto& download_request = req.download_req;
-    LOG(INFO) << "get download task. signature=" << req.signature
-              << ", job_id=" << download_request.job_id
-              << ", task detail: " << apache::thrift::ThriftDebugString(download_request);
-
-    std::vector<int64_t> transferred_tablet_ids;
-
-    auto status = Status::OK();
-    if (download_request.__isset.remote_tablet_snapshots) {
-        status = Status::Error<ErrorCode::NOT_IMPLEMENTED_ERROR>(
-                "remote tablet snapshot is not supported.");
-    } else {
-        std::unique_ptr<CloudSnapshotLoader> loader = std::make_unique<CloudSnapshotLoader>(
-                engine, env, download_request.job_id, req.signature, download_request.broker_addr,
-                download_request.broker_prop);
-        status = loader->init(download_request.__isset.storage_backend
-                                      ? download_request.storage_backend
-                                      : TStorageBackendType::type::BROKER,
-                              download_request.__isset.location ? download_request.location : "",
-                              download_request.vault_id);
-        if (status.ok()) {
-            status = loader->download(download_request.src_dest_map, &transferred_tablet_ids);
-        }
-
-        if (!status.ok()) {
-            LOG_WARNING("failed to download")
-                    .tag("signature", req.signature)
-                    .tag("job_id", download_request.job_id)
-                    .error(status);
-        } else {
-            LOG_INFO("successfully download")
-                    .tag("signature", req.signature)
-                    .tag("job_id", download_request.job_id);
-        }
-
-        TFinishTaskRequest finish_task_request;
-        finish_task_request.__set_backend(BackendOptions::get_local_backend());
-        finish_task_request.__set_task_type(req.task_type);
-        finish_task_request.__set_signature(req.signature);
-        finish_task_request.__set_task_status(status.to_thrift());
-        finish_task_request.__set_downloaded_tablet_ids(transferred_tablet_ids);
-
-        finish_task(finish_task_request);
-        remove_task_info(req.task_type, req.signature);
-    }
+    // const auto& download_request = req.download_req;
+    // LOG(INFO) << "get download task. signature=" << req.signature
+    //           << ", job_id=" << download_request.job_id
+    //           << ", task detail: " << apache::thrift::ThriftDebugString(download_request);
+    //
+    // std::vector<int64_t> transferred_tablet_ids;
+    //
+    // auto status = Status::OK();
+    // if (download_request.__isset.remote_tablet_snapshots) {
+    //     status = Status::Error<ErrorCode::NOT_IMPLEMENTED_ERROR>(
+    //             "remote tablet snapshot is not supported.");
+    // } else {
+    //     std::unique_ptr<CloudSnapshotLoader> loader = std::make_unique<CloudSnapshotLoader>(
+    //             engine, env, download_request.job_id, req.signature, download_request.broker_addr,
+    //             download_request.broker_prop);
+    //     status = loader->init(download_request.__isset.storage_backend
+    //                                   ? download_request.storage_backend
+    //                                   : TStorageBackendType::type::BROKER,
+    //                           download_request.__isset.location ? download_request.location : "",
+    //                           download_request.vault_id);
+    //     if (status.ok()) {
+    //         status = loader->download(download_request.src_dest_map, &transferred_tablet_ids);
+    //     }
+    //
+    //     if (!status.ok()) {
+    //         LOG_WARNING("failed to download")
+    //                 .tag("signature", req.signature)
+    //                 .tag("job_id", download_request.job_id)
+    //                 .error(status);
+    //     } else {
+    //         LOG_INFO("successfully download")
+    //                 .tag("signature", req.signature)
+    //                 .tag("job_id", download_request.job_id);
+    //     }
+    //
+    //     TFinishTaskRequest finish_task_request;
+    //     finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    //     finish_task_request.__set_task_type(req.task_type);
+    //     finish_task_request.__set_signature(req.signature);
+    //     finish_task_request.__set_task_status(status.to_thrift());
+    //     finish_task_request.__set_downloaded_tablet_ids(transferred_tablet_ids);
+    //
+    //     finish_task(finish_task_request);
+    //     remove_task_info(req.task_type, req.signature);
+    // }
 }
 
 void make_snapshot_callback(StorageEngine& engine, const TAgentTaskRequest& req) {
@@ -1489,103 +1486,103 @@ void release_snapshot_callback(StorageEngine& engine, const TAgentTaskRequest& r
 }
 
 void release_snapshot_callback(CloudStorageEngine& engine, const TAgentTaskRequest& req) {
-    const auto& release_snapshot_request = req.release_snapshot_req;
-
-    LOG(INFO) << "get release snapshot task. signature=" << req.signature;
-
-    Status status = engine.cloud_snapshot_mgr().release_snapshot(
-            release_snapshot_request.tablet_id, release_snapshot_request.is_job_completed);
-
-    if (!status.ok()) {
-        LOG_WARNING("failed to release snapshot")
-                .tag("signature", req.signature)
-                .tag("tablet_id", release_snapshot_request.tablet_id)
-                .tag("is_job_completed", release_snapshot_request.is_job_completed)
-                .error(status);
-    } else {
-        LOG_INFO("successfully release snapshot")
-                .tag("signature", req.signature)
-                .tag("tablet_id", release_snapshot_request.tablet_id)
-                .tag("is_job_completed", release_snapshot_request.is_job_completed);
-    }
-
-    TFinishTaskRequest finish_task_request;
-    finish_task_request.__set_backend(BackendOptions::get_local_backend());
-    finish_task_request.__set_task_type(req.task_type);
-    finish_task_request.__set_signature(req.signature);
-    finish_task_request.__set_task_status(status.to_thrift());
-
-    finish_task(finish_task_request);
-    remove_task_info(req.task_type, req.signature);
+    // const auto& release_snapshot_request = req.release_snapshot_req;
+    //
+    // LOG(INFO) << "get release snapshot task. signature=" << req.signature;
+    //
+    // Status status = engine.cloud_snapshot_mgr().release_snapshot(
+    //         release_snapshot_request.tablet_id, release_snapshot_request.is_job_completed);
+    //
+    // if (!status.ok()) {
+    //     LOG_WARNING("failed to release snapshot")
+    //             .tag("signature", req.signature)
+    //             .tag("tablet_id", release_snapshot_request.tablet_id)
+    //             .tag("is_job_completed", release_snapshot_request.is_job_completed)
+    //             .error(status);
+    // } else {
+    //     LOG_INFO("successfully release snapshot")
+    //             .tag("signature", req.signature)
+    //             .tag("tablet_id", release_snapshot_request.tablet_id)
+    //             .tag("is_job_completed", release_snapshot_request.is_job_completed);
+    // }
+    //
+    // TFinishTaskRequest finish_task_request;
+    // finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    // finish_task_request.__set_task_type(req.task_type);
+    // finish_task_request.__set_signature(req.signature);
+    // finish_task_request.__set_task_status(status.to_thrift());
+    //
+    // finish_task(finish_task_request);
+    // remove_task_info(req.task_type, req.signature);
 }
 
 void move_dir_callback(StorageEngine& engine, ExecEnv* env, const TAgentTaskRequest& req) {
-    const auto& move_dir_req = req.move_dir_req;
-
-    LOG(INFO) << "get move dir task. signature=" << req.signature
-              << ", job_id=" << move_dir_req.job_id;
-    Status status;
-    auto tablet = engine.tablet_manager()->get_tablet(move_dir_req.tablet_id);
-    if (tablet == nullptr) {
-        status = Status::InvalidArgument("Could not find tablet");
-    } else {
-        SnapshotLoader loader(engine, env, move_dir_req.job_id, move_dir_req.tablet_id);
-        status = loader.move(move_dir_req.src, tablet, true);
-    }
-
-    if (!status.ok()) {
-        LOG_WARNING("failed to move dir")
-                .tag("signature", req.signature)
-                .tag("job_id", move_dir_req.job_id)
-                .tag("tablet_id", move_dir_req.tablet_id)
-                .tag("src", move_dir_req.src)
-                .error(status);
-    } else {
-        LOG_INFO("successfully move dir")
-                .tag("signature", req.signature)
-                .tag("job_id", move_dir_req.job_id)
-                .tag("tablet_id", move_dir_req.tablet_id)
-                .tag("src", move_dir_req.src);
-    }
-
-    TFinishTaskRequest finish_task_request;
-    finish_task_request.__set_backend(BackendOptions::get_local_backend());
-    finish_task_request.__set_task_type(req.task_type);
-    finish_task_request.__set_signature(req.signature);
-    finish_task_request.__set_task_status(status.to_thrift());
-
-    finish_task(finish_task_request);
-    remove_task_info(req.task_type, req.signature);
+    // const auto& move_dir_req = req.move_dir_req;
+    //
+    // LOG(INFO) << "get move dir task. signature=" << req.signature
+    //           << ", job_id=" << move_dir_req.job_id;
+    // Status status;
+    // auto tablet = engine.tablet_manager()->get_tablet(move_dir_req.tablet_id);
+    // if (tablet == nullptr) {
+    //     status = Status::InvalidArgument("Could not find tablet");
+    // } else {
+    //     SnapshotLoader loader(engine, env, move_dir_req.job_id, move_dir_req.tablet_id);
+    //     status = loader.move(move_dir_req.src, tablet, true);
+    // }
+    //
+    // if (!status.ok()) {
+    //     LOG_WARNING("failed to move dir")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", move_dir_req.job_id)
+    //             .tag("tablet_id", move_dir_req.tablet_id)
+    //             .tag("src", move_dir_req.src)
+    //             .error(status);
+    // } else {
+    //     LOG_INFO("successfully move dir")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", move_dir_req.job_id)
+    //             .tag("tablet_id", move_dir_req.tablet_id)
+    //             .tag("src", move_dir_req.src);
+    // }
+    //
+    // TFinishTaskRequest finish_task_request;
+    // finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    // finish_task_request.__set_task_type(req.task_type);
+    // finish_task_request.__set_signature(req.signature);
+    // finish_task_request.__set_task_status(status.to_thrift());
+    //
+    // finish_task(finish_task_request);
+    // remove_task_info(req.task_type, req.signature);
 }
 
 void move_dir_callback(CloudStorageEngine& engine, ExecEnv* env, const TAgentTaskRequest& req) {
-    const auto& move_dir_req = req.move_dir_req;
-
-    LOG(INFO) << "get move dir task. signature=" << req.signature
-              << ", job_id=" << move_dir_req.job_id;
-
-    Status status = engine.cloud_snapshot_mgr().commit_snapshot(move_dir_req.tablet_id);
-    if (!status.ok()) {
-        LOG_WARNING("failed to move dir")
-                .tag("signature", req.signature)
-                .tag("job_id", move_dir_req.job_id)
-                .tag("tablet_id", move_dir_req.tablet_id)
-                .error(status);
-    } else {
-        LOG_INFO("successfully move dir")
-                .tag("signature", req.signature)
-                .tag("job_id", move_dir_req.job_id)
-                .tag("tablet_id", move_dir_req.tablet_id);
-    }
-
-    TFinishTaskRequest finish_task_request;
-    finish_task_request.__set_backend(BackendOptions::get_local_backend());
-    finish_task_request.__set_task_type(req.task_type);
-    finish_task_request.__set_signature(req.signature);
-    finish_task_request.__set_task_status(status.to_thrift());
-
-    finish_task(finish_task_request);
-    remove_task_info(req.task_type, req.signature);
+    // const auto& move_dir_req = req.move_dir_req;
+    //
+    // LOG(INFO) << "get move dir task. signature=" << req.signature
+    //           << ", job_id=" << move_dir_req.job_id;
+    //
+    // Status status = engine.cloud_snapshot_mgr().commit_snapshot(move_dir_req.tablet_id);
+    // if (!status.ok()) {
+    //     LOG_WARNING("failed to move dir")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", move_dir_req.job_id)
+    //             .tag("tablet_id", move_dir_req.tablet_id)
+    //             .error(status);
+    // } else {
+    //     LOG_INFO("successfully move dir")
+    //             .tag("signature", req.signature)
+    //             .tag("job_id", move_dir_req.job_id)
+    //             .tag("tablet_id", move_dir_req.tablet_id);
+    // }
+    //
+    // TFinishTaskRequest finish_task_request;
+    // finish_task_request.__set_backend(BackendOptions::get_local_backend());
+    // finish_task_request.__set_task_type(req.task_type);
+    // finish_task_request.__set_signature(req.signature);
+    // finish_task_request.__set_task_status(status.to_thrift());
+    //
+    // finish_task(finish_task_request);
+    // remove_task_info(req.task_type, req.signature);
 }
 
 void submit_table_compaction_callback(StorageEngine& engine, const TAgentTaskRequest& req) {

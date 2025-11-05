@@ -33,7 +33,6 @@
 
 #include "common/be_mock_util.h"
 #include "common/status.h"
-#include "http/rest_monitor_iface.h"
 #include "runtime/query_context.h"
 #include "runtime_filter/runtime_filter_mgr.h"
 #include "util/countdown_latch.h"
@@ -65,8 +64,6 @@ class TScanColumnDesc;
 class TScanOpenParams;
 class Thread;
 class WorkloadQueryInfo;
-
-std::string to_load_error_http_path(const std::string& file_name);
 
 template <typename Key, typename Value, typename ValueType>
 class ConcurrentContextMap {
@@ -109,12 +106,12 @@ private:
 };
 
 // This class used to manage all the fragment execute in this instance
-class FragmentMgr : public RestMonitorIface {
+class FragmentMgr {
 public:
     using FinishCallback = std::function<void(RuntimeState*, Status*)>;
 
     FragmentMgr(ExecEnv* exec_env);
-    ~FragmentMgr() override;
+    virtual ~FragmentMgr();
 
     void stop();
 
@@ -139,7 +136,7 @@ public:
 
     void cancel_worker();
 
-    void debug(std::stringstream& ss) override;
+    virtual void debug(std::stringstream& ss) ;
 
     // input: TQueryPlanInfo fragment_instance_id
     // output: selected_columns
@@ -159,8 +156,6 @@ public:
     Status send_filter_size(const PSendFilterSizeRequest* request);
 
     Status sync_filter_size(const PSyncFilterSizeRequest* request);
-
-    std::string to_http_path(const std::string& file_name);
 
     void coordinator_callback(const ReportStatusRequest& req);
 

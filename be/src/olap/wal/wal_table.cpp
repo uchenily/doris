@@ -20,12 +20,6 @@
 #include <absl/strings/str_split.h>
 #include <thrift/protocol/TDebugProtocol.h>
 
-#include "http/action/http_stream.h"
-#include "http/action/stream_load.h"
-#include "http/ev_http_server.h"
-#include "http/http_common.h"
-#include "http/http_headers.h"
-#include "http/utils.h"
 #include "io/fs/local_file_system.h"
 #include "io/fs/stream_load_pipe.h"
 #include "olap/wal/wal_manager.h"
@@ -40,7 +34,6 @@ bvar::Adder<uint64_t> wal_fail("group_commit_wal_fail");
 
 WalTable::WalTable(ExecEnv* exec_env, int64_t db_id, int64_t table_id)
         : _exec_env(exec_env), _db_id(db_id), _table_id(table_id) {
-    _http_stream_action = std::make_shared<HttpStreamAction>(exec_env);
 }
 WalTable::~WalTable() {}
 
@@ -254,7 +247,8 @@ Status WalTable::_handle_stream_load(int64_t wal_id, const std::string& wal,
     ctx->load_type = TLoadType::MANUL_LOAD;
     ctx->load_src_type = TLoadSourceType::RAW;
     ctx->max_filter_ratio = 1;
-    auto st = _http_stream_action->process_put(nullptr, ctx);
+    // auto st = _http_stream_action->process_put(nullptr, ctx);
+    auto st = Status::OK();
     DBUG_EXECUTE_IF("WalTable::_handle_stream_load.fail",
                     { st = Status::InternalError("WalTable::_handle_stream_load.fail"); });
     if (st.ok()) {

@@ -33,10 +33,8 @@
 #include <vector>
 
 #include "common/status.h"
-#include "http/http_client.h"
 #include "io/fs/file_system.h"
 #include "io/fs/local_file_system.h"
-#include "runtime/exec_env.h"
 #include "util/doris_metrics.h"
 #include "util/md5.h"
 #include "util/metrics.h"
@@ -47,7 +45,7 @@ namespace doris {
 DEFINE_GAUGE_METRIC_PROTOTYPE_2ARG(small_file_cache_count, MetricUnit::NOUNIT);
 
 SmallFileMgr::SmallFileMgr(ExecEnv* env, const std::string& local_path)
-        : _exec_env(env), _local_path(local_path) {
+        :  _local_path(local_path) {
     REGISTER_HOOK_METRIC(small_file_cache_count, [this]() {
         // std::lock_guard<std::mutex> l(_lock);
         return _file_cache.size();
@@ -151,84 +149,82 @@ Status SmallFileMgr::_check_file(const CacheEntry& entry, const std::string& md5
 
 Status SmallFileMgr::_download_file(int64_t file_id, const std::string& md5,
                                     std::string* file_path) {
-    std::stringstream ss;
-    ss << _local_path << "/" << file_id << ".tmp";
-    std::string tmp_file = ss.str();
-    bool should_delete = true;
-    auto fp_closer = [&tmp_file, &should_delete](FILE* fp) {
-        fclose(fp);
-        if (should_delete) remove(tmp_file.c_str());
-    };
-
-    std::unique_ptr<FILE, decltype(fp_closer)> fp(fopen(tmp_file.c_str(), "w"), fp_closer);
-    if (fp == nullptr) {
-        LOG(WARNING) << "fail to open file, file=" << tmp_file;
-        return Status::InternalError("fail to open file");
-    }
-
-    HttpClient client;
-
-    std::stringstream url_ss;
-    ClusterInfo* cluster_info = _exec_env->cluster_info();
-    url_ss << cluster_info->master_fe_addr.hostname << ":" << cluster_info->master_fe_http_port
-           << "/api/get_small_file?"
-           << "file_id=" << file_id << "&token=" << cluster_info->token;
-
-    std::string url = url_ss.str();
-
-    LOG(INFO) << "download file from: " << url;
-
-    RETURN_IF_ERROR(client.init(url));
-    Status status;
-    Md5Digest digest;
-    auto download_cb = [&status, &tmp_file, &fp, &digest](const void* data, size_t length) {
-        digest.update(data, length);
-        auto res = fwrite(data, length, 1, fp.get());
-        if (res != 1) {
-            LOG(WARNING) << "fail to write data to file, file=" << tmp_file
-                         << ", error=" << ferror(fp.get());
-            status = Status::InternalError("fail to write data when download");
-            return false;
-        }
-        return true;
-    };
-    RETURN_IF_ERROR(client.execute(download_cb));
-    RETURN_IF_ERROR(status);
-    digest.digest();
-
-    if (!iequal(digest.hex(), md5)) {
-        LOG(WARNING) << "file's checksum is not equal, download: " << digest.hex()
-                     << ", expected: " << md5 << ", file: " << file_id;
-        return Status::InternalError("download with invalid md5");
-    }
-
-    // close this file
-    should_delete = false;
-    fp.reset();
-
-    // rename temporary file to library file
-    std::stringstream real_ss;
-    real_ss << _local_path << "/" << file_id << "." << md5;
-    std::string real_file_path = real_ss.str();
-    auto ret = rename(tmp_file.c_str(), real_file_path.c_str());
-    if (ret != 0) {
-        char buf[64];
-        LOG(WARNING) << "fail to rename file from=" << tmp_file << ", to=" << real_file_path
-                     << ", errno=" << errno << ", errmsg=" << strerror_r(errno, buf, 64);
-        remove(tmp_file.c_str());
-        remove(real_file_path.c_str());
-        return Status::InternalError("fail to rename file");
-    }
-
-    // add to file cache
-    CacheEntry entry;
-    entry.path = real_file_path;
-    entry.md5 = md5;
-    _file_cache.emplace(file_id, entry);
-
-    *file_path = real_file_path;
-
-    LOG(INFO) << "finished to download file: " << file_path;
+    // std::stringstream ss;
+    // ss << _local_path << "/" << file_id << ".tmp";
+    // std::string tmp_file = ss.str();
+    // bool should_delete = true;
+    // auto fp_closer = [&tmp_file, &should_delete](FILE* fp) {
+    //     fclose(fp);
+    //     if (should_delete) remove(tmp_file.c_str());
+    // };
+    //
+    // std::unique_ptr<FILE, decltype(fp_closer)> fp(fopen(tmp_file.c_str(), "w"), fp_closer);
+    // if (fp == nullptr) {
+    //     LOG(WARNING) << "fail to open file, file=" << tmp_file;
+    //     return Status::InternalError("fail to open file");
+    // }
+    //
+    // std::stringstream url_ss;
+    // ClusterInfo* cluster_info = _exec_env->cluster_info();
+    // url_ss << cluster_info->master_fe_addr.hostname << ":" << cluster_info->master_fe_http_port
+    //        << "/api/get_small_file?"
+    //        << "file_id=" << file_id << "&token=" << cluster_info->token;
+    //
+    // std::string url = url_ss.str();
+    //
+    // LOG(INFO) << "download file from: " << url;
+    //
+    // RETURN_IF_ERROR(client.init(url));
+    // Status status;
+    // Md5Digest digest;
+    // auto download_cb = [&status, &tmp_file, &fp, &digest](const void* data, size_t length) {
+    //     digest.update(data, length);
+    //     auto res = fwrite(data, length, 1, fp.get());
+    //     if (res != 1) {
+    //         LOG(WARNING) << "fail to write data to file, file=" << tmp_file
+    //                      << ", error=" << ferror(fp.get());
+    //         status = Status::InternalError("fail to write data when download");
+    //         return false;
+    //     }
+    //     return true;
+    // };
+    // RETURN_IF_ERROR(client.execute(download_cb));
+    // RETURN_IF_ERROR(status);
+    // digest.digest();
+    //
+    // if (!iequal(digest.hex(), md5)) {
+    //     LOG(WARNING) << "file's checksum is not equal, download: " << digest.hex()
+    //                  << ", expected: " << md5 << ", file: " << file_id;
+    //     return Status::InternalError("download with invalid md5");
+    // }
+    //
+    // // close this file
+    // should_delete = false;
+    // fp.reset();
+    //
+    // // rename temporary file to library file
+    // std::stringstream real_ss;
+    // real_ss << _local_path << "/" << file_id << "." << md5;
+    // std::string real_file_path = real_ss.str();
+    // auto ret = rename(tmp_file.c_str(), real_file_path.c_str());
+    // if (ret != 0) {
+    //     char buf[64];
+    //     LOG(WARNING) << "fail to rename file from=" << tmp_file << ", to=" << real_file_path
+    //                  << ", errno=" << errno << ", errmsg=" << strerror_r(errno, buf, 64);
+    //     remove(tmp_file.c_str());
+    //     remove(real_file_path.c_str());
+    //     return Status::InternalError("fail to rename file");
+    // }
+    //
+    // // add to file cache
+    // CacheEntry entry;
+    // entry.path = real_file_path;
+    // entry.md5 = md5;
+    // _file_cache.emplace(file_id, entry);
+    //
+    // *file_path = real_file_path;
+    //
+    // LOG(INFO) << "finished to download file: " << file_path;
     return Status::OK();
 }
 

@@ -53,7 +53,6 @@
 #include "pipeline/exec/dict_sink_operator.h"
 #include "pipeline/exec/distinct_streaming_aggregation_operator.h"
 #include "pipeline/exec/empty_set_operator.h"
-#include "pipeline/exec/es_scan_operator.h"
 #include "pipeline/exec/exchange_sink_operator.h"
 #include "pipeline/exec/exchange_source_operator.h"
 #include "pipeline/exec/file_scan_operator.h"
@@ -1223,14 +1222,6 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         fe_with_old_version = !tnode.__isset.is_serial_operator;
         break;
     }
-    case TPlanNodeType::ES_SCAN_NODE:
-    case TPlanNodeType::ES_HTTP_SCAN_NODE: {
-        op = std::make_shared<EsScanOperatorX>(pool, tnode, next_operator_id(), descs,
-                                               _num_instances);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        fe_with_old_version = !tnode.__isset.is_serial_operator;
-        break;
-    }
     case TPlanNodeType::EXCHANGE_NODE: {
         int num_senders = _params.per_exch_num_senders.contains(tnode.node_id)
                                   ? _params.per_exch_num_senders.find(tnode.node_id)->second
@@ -1799,12 +1790,14 @@ void PipelineFragmentContext::decrement_running_task(PipelineId pipeline_id) {
 
 std::string PipelineFragmentContext::get_load_error_url() {
     if (const auto& str = _runtime_state->get_error_log_file_path(); !str.empty()) {
-        return to_load_error_http_path(str);
+        // return to_load_error_http_path(str);
+        return "";
     }
     for (auto& tasks : _tasks) {
         for (auto& task : tasks) {
             if (const auto& str = task.second->get_error_log_file_path(); !str.empty()) {
-                return to_load_error_http_path(str);
+                // return to_load_error_http_path(str);
+                return "";
             }
         }
     }

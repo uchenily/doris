@@ -23,7 +23,6 @@
 #include "common/logging.h"
 #include "gen_cpp/Types_constants.h"
 #include "gen_cpp/internal_service.pb.h"
-#include "http/http_client.h"
 #include "io/fs/file_system.h"
 #include "io/fs/local_file_system.h"
 #include "io/fs/path.h"
@@ -367,114 +366,114 @@ Status SingleReplicaCompaction::_make_snapshot(const std::string& ip, int port, 
 Status SingleReplicaCompaction::_download_files(DataDir* data_dir,
                                                 const std::string& remote_url_prefix,
                                                 const std::string& local_path) {
-    // Check local path exist, if exist, remove it, then create the dir
-    // local_file_full_path = tabletid/clone， for a specific tablet, there should be only one folder
-    // if this folder exists, then should remove it
-    // for example, BE clone from BE 1 to download file 1 with version (2,2), but clone from BE 1 failed
-    // then it will try to clone from BE 2, but it will find the file 1 already exist, but file 1 with same
-    // name may have different versions.
-    VLOG_DEBUG << "single replica compaction begin to download files, remote path="
-               << mask_token(remote_url_prefix) << " local_path=" << local_path;
-    RETURN_IF_ERROR(io::global_local_filesystem()->delete_directory(local_path));
-    RETURN_IF_ERROR(io::global_local_filesystem()->create_directory(local_path));
-
-    // Get remote dir file list
-    std::string file_list_str;
-    auto list_files_cb = [&remote_url_prefix, &file_list_str](HttpClient* client) {
-        RETURN_IF_ERROR(client->init(remote_url_prefix));
-        client->set_timeout_ms(LIST_REMOTE_FILE_TIMEOUT * 1000);
-        RETURN_IF_ERROR(client->execute(&file_list_str));
-        return Status::OK();
-    };
-    RETURN_IF_ERROR(HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, list_files_cb));
-    std::vector<std::string> file_name_list =
-            absl::StrSplit(file_list_str, "\n", absl::SkipWhitespace());
-
-    // If the header file is not exist, the table couldn't loaded by olap engine.
-    // Avoid of data is not complete, we copy the header file at last.
-    // The header file's name is end of .hdr.
-    for (int i = 0; i < file_name_list.size() - 1; ++i) {
-        if (file_name_list[i].ends_with(".hdr")) {
-            std::swap(file_name_list[i], file_name_list[file_name_list.size() - 1]);
-            break;
-        }
-    }
-
-    // Get copy from remote
-    uint64_t total_file_size = 0;
-    MonotonicStopWatch watch;
-    watch.start();
-    auto curl = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>(curl_easy_init(),
-                                                                    &curl_easy_cleanup);
-    if (!curl) {
-        return Status::InternalError("single compaction init curl failed");
-    }
-    for (auto& file_name : file_name_list) {
-        auto remote_file_url = remote_url_prefix + file_name;
-
-        // get file length
-        uint64_t file_size = 0;
-        auto get_file_size_cb = [&remote_file_url, &file_size](HttpClient* client) {
-            RETURN_IF_ERROR(client->init(remote_file_url));
-            client->set_timeout_ms(GET_LENGTH_TIMEOUT * 1000);
-            RETURN_IF_ERROR(client->head());
-            RETURN_IF_ERROR(client->get_content_length(&file_size));
-            return Status::OK();
-        };
-        RETURN_IF_ERROR(
-                HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, get_file_size_cb));
-        // check disk capacity
-        if (data_dir->reach_capacity_limit(file_size)) {
-            return Status::Error<EXCEEDED_LIMIT>(
-                    "reach the capacity limit of path {}, file_size={}", data_dir->path(),
-                    file_size);
-        }
-
-        total_file_size += file_size;
-        uint64_t estimate_timeout = file_size / config::download_low_speed_limit_kbps / 1024;
-        if (estimate_timeout < config::download_low_speed_time) {
-            estimate_timeout = config::download_low_speed_time;
-        }
-
-        std::string local_file_path = local_path + file_name;
-
-        LOG(INFO) << "single replica compaction begin to download file from: "
-                  << mask_token(remote_file_url) << " to: " << local_file_path
-                  << ". size(B): " << file_size << ", timeout(s): " << estimate_timeout;
-
-        auto download_cb = [&remote_file_url, estimate_timeout, &local_file_path,
-                            file_size](HttpClient* client) {
-            RETURN_IF_ERROR(client->init(remote_file_url));
-            client->set_timeout_ms(estimate_timeout * 1000);
-            RETURN_IF_ERROR(client->download(local_file_path));
-
-            DBUG_EXECUTE_IF("single_compaction_failed_download_file",
-                            { return Status::InternalError("failed to download file"); });
-            // Check file length
-            uint64_t local_file_size = std::filesystem::file_size(local_file_path);
-            if (local_file_size != file_size) {
-                LOG(WARNING) << "download file length error"
-                             << ", remote_path=" << mask_token(remote_file_url)
-                             << ", file_size=" << file_size
-                             << ", local_file_size=" << local_file_size;
-                return Status::InternalError("downloaded file size is not equal");
-            }
-            return io::global_local_filesystem()->permission(local_file_path,
-                                                             io::LocalFileSystem::PERMS_OWNER_RW);
-        };
-        RETURN_IF_ERROR(HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, download_cb));
-    } // Clone files from remote backend
-
-    uint64_t total_time_ms = watch.elapsed_time() / 1000 / 1000;
-    total_time_ms = total_time_ms > 0 ? total_time_ms : 0;
-    double copy_rate = 0.0;
-    if (total_time_ms > 0) {
-        copy_rate = total_file_size / ((double)total_time_ms) / 1000;
-    }
-    LOG(INFO) << "succeed to single replica compaction copy tablet " << _tablet->tablet_id()
-              << ", total file size: " << total_file_size << " B"
-              << ", cost: " << total_time_ms << " ms"
-              << ", rate: " << copy_rate << " MB/s";
+    // // Check local path exist, if exist, remove it, then create the dir
+    // // local_file_full_path = tabletid/clone， for a specific tablet, there should be only one folder
+    // // if this folder exists, then should remove it
+    // // for example, BE clone from BE 1 to download file 1 with version (2,2), but clone from BE 1 failed
+    // // then it will try to clone from BE 2, but it will find the file 1 already exist, but file 1 with same
+    // // name may have different versions.
+    // VLOG_DEBUG << "single replica compaction begin to download files, remote path="
+    //            << mask_token(remote_url_prefix) << " local_path=" << local_path;
+    // RETURN_IF_ERROR(io::global_local_filesystem()->delete_directory(local_path));
+    // RETURN_IF_ERROR(io::global_local_filesystem()->create_directory(local_path));
+    //
+    // // Get remote dir file list
+    // std::string file_list_str;
+    // auto list_files_cb = [&remote_url_prefix, &file_list_str](HttpClient* client) {
+    //     RETURN_IF_ERROR(client->init(remote_url_prefix));
+    //     client->set_timeout_ms(LIST_REMOTE_FILE_TIMEOUT * 1000);
+    //     RETURN_IF_ERROR(client->execute(&file_list_str));
+    //     return Status::OK();
+    // };
+    // RETURN_IF_ERROR(HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, list_files_cb));
+    // std::vector<std::string> file_name_list =
+    //         absl::StrSplit(file_list_str, "\n", absl::SkipWhitespace());
+    //
+    // // If the header file is not exist, the table couldn't loaded by olap engine.
+    // // Avoid of data is not complete, we copy the header file at last.
+    // // The header file's name is end of .hdr.
+    // for (int i = 0; i < file_name_list.size() - 1; ++i) {
+    //     if (file_name_list[i].ends_with(".hdr")) {
+    //         std::swap(file_name_list[i], file_name_list[file_name_list.size() - 1]);
+    //         break;
+    //     }
+    // }
+    //
+    // // Get copy from remote
+    // uint64_t total_file_size = 0;
+    // MonotonicStopWatch watch;
+    // watch.start();
+    // auto curl = std::unique_ptr<CURL, decltype(&curl_easy_cleanup)>(curl_easy_init(),
+    //                                                                 &curl_easy_cleanup);
+    // if (!curl) {
+    //     return Status::InternalError("single compaction init curl failed");
+    // }
+    // for (auto& file_name : file_name_list) {
+    //     auto remote_file_url = remote_url_prefix + file_name;
+    //
+    //     // get file length
+    //     uint64_t file_size = 0;
+    //     auto get_file_size_cb = [&remote_file_url, &file_size](HttpClient* client) {
+    //         RETURN_IF_ERROR(client->init(remote_file_url));
+    //         client->set_timeout_ms(GET_LENGTH_TIMEOUT * 1000);
+    //         RETURN_IF_ERROR(client->head());
+    //         RETURN_IF_ERROR(client->get_content_length(&file_size));
+    //         return Status::OK();
+    //     };
+    //     RETURN_IF_ERROR(
+    //             HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, get_file_size_cb));
+    //     // check disk capacity
+    //     if (data_dir->reach_capacity_limit(file_size)) {
+    //         return Status::Error<EXCEEDED_LIMIT>(
+    //                 "reach the capacity limit of path {}, file_size={}", data_dir->path(),
+    //                 file_size);
+    //     }
+    //
+    //     total_file_size += file_size;
+    //     uint64_t estimate_timeout = file_size / config::download_low_speed_limit_kbps / 1024;
+    //     if (estimate_timeout < config::download_low_speed_time) {
+    //         estimate_timeout = config::download_low_speed_time;
+    //     }
+    //
+    //     std::string local_file_path = local_path + file_name;
+    //
+    //     LOG(INFO) << "single replica compaction begin to download file from: "
+    //               << mask_token(remote_file_url) << " to: " << local_file_path
+    //               << ". size(B): " << file_size << ", timeout(s): " << estimate_timeout;
+    //
+    //     auto download_cb = [&remote_file_url, estimate_timeout, &local_file_path,
+    //                         file_size](HttpClient* client) {
+    //         RETURN_IF_ERROR(client->init(remote_file_url));
+    //         client->set_timeout_ms(estimate_timeout * 1000);
+    //         RETURN_IF_ERROR(client->download(local_file_path));
+    //
+    //         DBUG_EXECUTE_IF("single_compaction_failed_download_file",
+    //                         { return Status::InternalError("failed to download file"); });
+    //         // Check file length
+    //         uint64_t local_file_size = std::filesystem::file_size(local_file_path);
+    //         if (local_file_size != file_size) {
+    //             LOG(WARNING) << "download file length error"
+    //                          << ", remote_path=" << mask_token(remote_file_url)
+    //                          << ", file_size=" << file_size
+    //                          << ", local_file_size=" << local_file_size;
+    //             return Status::InternalError("downloaded file size is not equal");
+    //         }
+    //         return io::global_local_filesystem()->permission(local_file_path,
+    //                                                          io::LocalFileSystem::PERMS_OWNER_RW);
+    //     };
+    //     RETURN_IF_ERROR(HttpClient::execute_with_retry(DOWNLOAD_FILE_MAX_RETRY, 1, download_cb));
+    // } // Clone files from remote backend
+    //
+    // uint64_t total_time_ms = watch.elapsed_time() / 1000 / 1000;
+    // total_time_ms = total_time_ms > 0 ? total_time_ms : 0;
+    // double copy_rate = 0.0;
+    // if (total_time_ms > 0) {
+    //     copy_rate = total_file_size / ((double)total_time_ms) / 1000;
+    // }
+    // LOG(INFO) << "succeed to single replica compaction copy tablet " << _tablet->tablet_id()
+    //           << ", total file size: " << total_file_size << " B"
+    //           << ", cost: " << total_time_ms << " ms"
+    //           << ", rate: " << copy_rate << " MB/s";
     return Status::OK();
 }
 
