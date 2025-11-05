@@ -621,11 +621,11 @@ Status FragmentMgr::start_query_execution(const PExecPlanFragmentStartRequest* r
     if (q_ctx) {
         q_ctx->set_ready_to_execute(Status::OK());
         LOG_INFO("Query {} start execution", print_id(query_id));
-    } else {
-        return Status::InternalError(
-                "Failed to get query fragments context. Query {} may be "
-                "timeout or be cancelled. host: {}",
-                print_id(query_id), BackendOptions::get_localhost());
+    // } else {
+    //     return Status::InternalError(
+    //             "Failed to get query fragments context. Query {} may be "
+    //             "timeout or be cancelled. host: {}",
+    //             print_id(query_id), BackendOptions::get_localhost());
     }
     return Status::OK();
 }
@@ -832,8 +832,9 @@ Status FragmentMgr::exec_plan_fragment(const TPipelineFragmentParams& params,
     std::shared_ptr<pipeline::PipelineFragmentContext> context =
             std::make_shared<pipeline::PipelineFragmentContext>(
                     query_ctx->query_id(), params, query_ctx, _exec_env, cb,
-                    [this](const ReportStatusRequest& req, auto&& ctx) {
-                        return this->trigger_pipeline_context_report(req, std::move(ctx));
+                    [](const ReportStatusRequest& req, auto&& ctx) {
+                        // return this->trigger_pipeline_context_report(req, std::move(ctx));
+                        return Status::OK();
                     });
     {
         SCOPED_RAW_TIMER(&duration_ns);
