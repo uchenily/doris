@@ -62,7 +62,6 @@
 #include "pipeline/exec/hashjoin_build_sink.h"
 #include "pipeline/exec/hashjoin_probe_operator.h"
 #include "pipeline/exec/hive_table_sink_operator.h"
-#include "pipeline/exec/iceberg_table_sink_operator.h"
 #include "pipeline/exec/jdbc_scan_operator.h"
 #include "pipeline/exec/jdbc_table_sink_operator.h"
 #include "pipeline/exec/local_merge_sort_source_operator.h"
@@ -1057,14 +1056,6 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
         }
         _sink = std::make_shared<HiveTableSinkOperatorX>(pool, next_sink_operator_id(), row_desc,
                                                          output_exprs);
-        break;
-    }
-    case TDataSinkType::ICEBERG_TABLE_SINK: {
-        if (!thrift_sink.__isset.iceberg_table_sink) {
-            return Status::InternalError("Missing hive table sink.");
-        }
-        _sink = std::make_shared<IcebergTableSinkOperatorX>(pool, next_sink_operator_id(), row_desc,
-                                                            output_exprs);
         break;
     }
     case TDataSinkType::JDBC_TABLE_SINK: {
