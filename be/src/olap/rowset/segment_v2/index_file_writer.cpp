@@ -25,7 +25,6 @@
 #include "common/status.h"
 #include "io/fs/s3_file_writer.h"
 #include "io/fs/stream_sink_file_writer.h"
-#include "olap/rowset/segment_v2/ann_index/ann_index_files.h"
 #include "olap/rowset/segment_v2/index_file_reader.h"
 #include "olap/rowset/segment_v2/index_storage_format_v1.h"
 #include "olap/rowset/segment_v2/index_storage_format_v2.h"
@@ -137,7 +136,8 @@ Status IndexFileWriter::add_into_searcher_cache() {
         auto dir = DORIS_TRY(index_file_reader->_open(index_meta.first, index_meta.second));
         std::vector<std::string> file_names;
         dir->list(&file_names);
-        if (file_names.size() == 1 && (file_names[0] == faiss_index_fila_name)) {
+        // if (file_names.size() == 1 && (file_names[0] == faiss_index_fila_name)) {
+        if (file_names.size() == 1 && (file_names[0] == "???")) {
             continue;
         }
         auto index_file_key = InvertedIndexDescriptor::get_index_file_cache_key(

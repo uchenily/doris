@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "common/status.h"
-#include "olap/rowset/segment_v2/ann_index/ann_range_search_runtime.h"
 #include "runtime/runtime_state.h"
 #include "udf/udf.h"
 #include "vec/core/column_numbers.h"
@@ -83,17 +82,6 @@ public:
     bool equals(const VExpr& other) override;
 
     size_t estimate_memory(const size_t rows) override;
-
-    Status evaluate_ann_range_search(
-            const segment_v2::AnnRangeSearchRuntime& runtime,
-            const std::vector<std::unique_ptr<segment_v2::IndexIterator>>& cid_to_index_iterators,
-            const std::vector<ColumnId>& idx_to_cid,
-            const std::vector<std::unique_ptr<segment_v2::ColumnIterator>>& column_iterators,
-            roaring::Roaring& row_bitmap, segment_v2::AnnIndexStats& ann_index_stats) override;
-
-    void prepare_ann_range_search(const doris::VectorSearchUserParams& params,
-                                  segment_v2::AnnRangeSearchRuntime& runtime,
-                                  bool& suitable_for_ann_index) override;
 
 protected:
     FunctionBasePtr _function;

@@ -1625,32 +1625,6 @@ std::vector<const TabletIndex*> TabletSchema::inverted_indexs(const TabletColumn
     return result;
 }
 
-const TabletIndex* TabletSchema::ann_index(int32_t col_unique_id,
-                                           const std::string& suffix_path) const {
-    for (size_t i = 0; i < _indexes.size(); i++) {
-        if (_indexes[i]->index_type() == IndexType::ANN) {
-            for (int32_t id : _indexes[i]->col_unique_ids()) {
-                if (id == col_unique_id &&
-                    _indexes[i]->get_index_suffix() == escape_for_path_name(suffix_path)) {
-                    return _indexes[i].get();
-                }
-            }
-        }
-    }
-    return nullptr;
-}
-
-const TabletIndex* TabletSchema::ann_index(const TabletColumn& col) const {
-    // Some columns(Float, Double, JSONB ...) from the variant do not support inverted index
-    if (!segment_v2::IndexColumnWriter::check_support_ann_index(col)) {
-        return nullptr;
-    }
-    // TODO use more efficient impl
-    // Use parent id if unique not assigned, this could happend when accessing subcolumns of variants
-    int32_t col_unique_id = col.is_extracted_column() ? col.parent_unique_id() : col.unique_id();
-    return ann_index(col_unique_id, escape_for_path_name(col.suffix_path()));
-}
-
 bool TabletSchema::has_ngram_bf_index(int32_t col_unique_id) const {
     IndexKey index_key(IndexType::NGRAM_BF, col_unique_id, "");
     auto it = _col_id_suffix_to_index.find(index_key);

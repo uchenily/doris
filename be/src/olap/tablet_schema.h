@@ -508,28 +508,12 @@ public:
         return false;
     }
 
-    bool has_ann_index() const {
-        for (const auto& index : _indexes) {
-            if (index->index_type() == IndexType::ANN) {
-                if (!index->col_unique_ids().empty() && index->col_unique_ids()[0] >= 0) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     bool has_inverted_index_with_index_id(int64_t index_id) const;
 
     std::vector<const TabletIndex*> inverted_indexs(const TabletColumn& col) const;
 
     std::vector<const TabletIndex*> inverted_indexs(int32_t col_unique_id,
                                                     const std::string& suffix_path = "") const;
-    const TabletIndex* ann_index(const TabletColumn& col) const;
-
-    // Regardless of whether this column supports inverted index
-    // TabletIndex information will be returned as long as it exists.
-    const TabletIndex* ann_index(int32_t col_unique_id, const std::string& suffix_path = "") const;
 
     std::vector<TabletIndexPtr> inverted_index_by_field_pattern(
             int32_t col_unique_id, const std::string& field_pattern) const;

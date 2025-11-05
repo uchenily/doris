@@ -31,7 +31,6 @@
 #include <vector>
 
 #include "common/status.h"
-#include "olap/rowset/segment_v2/ann_index/ann_search_params.h"
 #include "olap/rowset/segment_v2/column_reader.h"
 #include "olap/rowset/segment_v2/index_reader.h"
 #include "olap/rowset/segment_v2/inverted_index_reader.h"
@@ -293,21 +292,6 @@ public:
 #ifdef BE_TEST
     void set_node_type(TExprNodeType::type node_type) { _node_type = node_type; }
 #endif
-    virtual Status evaluate_ann_range_search(
-            const segment_v2::AnnRangeSearchRuntime& runtime,
-            const std::vector<std::unique_ptr<segment_v2::IndexIterator>>& cid_to_index_iterators,
-            const std::vector<ColumnId>& idx_to_cid,
-            const std::vector<std::unique_ptr<segment_v2::ColumnIterator>>& column_iterators,
-            roaring::Roaring& row_bitmap, segment_v2::AnnIndexStats& ann_index_stats);
-
-    // Prepare the runtime for ANN range search.
-    // AnnRangeSearchRuntime is used to store the runtime information of ann range search.
-    // suitable_for_ann_index is used to indicate whether the current expr can be used for ANN range search.
-    // If suitable_for_ann_index is false, the we will do exhausted search.
-    virtual void prepare_ann_range_search(const doris::VectorSearchUserParams& params,
-                                          segment_v2::AnnRangeSearchRuntime& range_search_runtime,
-                                          bool& suitable_for_ann_index);
-
     bool has_been_executed();
 
     virtual uint64_t get_digest(uint64_t seed) const;

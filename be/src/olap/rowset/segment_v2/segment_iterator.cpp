@@ -48,9 +48,6 @@
 #include "olap/like_column_predicate.h"
 #include "olap/olap_common.h"
 #include "olap/primary_key_index.h"
-#include "olap/rowset/segment_v2/ann_index/ann_index.h"
-#include "olap/rowset/segment_v2/ann_index/ann_index_reader.h"
-#include "olap/rowset/segment_v2/ann_index/ann_topn_runtime.h"
 #include "olap/rowset/segment_v2/bitmap_index_reader.h"
 #include "olap/rowset/segment_v2/column_reader.h"
 #include "olap/rowset/segment_v2/column_reader_cache.h"
@@ -367,7 +364,6 @@ Status SegmentIterator::_init_impl(const StorageReadOptions& opts) {
     _virtual_column_exprs = _opts.virtual_column_exprs;
     _vir_cid_to_idx_in_block = _opts.vir_cid_to_idx_in_block;
     _score_runtime = _opts.score_runtime;
-    _ann_topn_runtime = _opts.ann_topn_runtime;
 
     if (opts.output_columns != nullptr) {
         _output_columns = *(opts.output_columns);
@@ -474,8 +470,6 @@ Status SegmentIterator::_lazy_init(vectorized::Block* block) {
     }
 
     _prepare_score_column_materialization();
-
-    RETURN_IF_ERROR(_apply_ann_topn_predicate());
 
     if (_opts.read_orderby_key_reverse) {
         _range_iter.reset(new BackwardBitmapRangeIterator(_row_bitmap));
@@ -730,98 +724,6 @@ Status SegmentIterator::_get_row_ranges_by_column_conditions() {
 
     // TODO(hkp): calculate filter rate to decide whether to
     // use zone map/bloom filter/secondary index or not.
-    return Status::OK();
-}
-
-Status SegmentIterator::_apply_ann_topn_predicate() {
-    if (_ann_topn_runtime == nullptr) {
-        return Status::OK();
-    }
-
-    VLOG_DEBUG << fmt::format("Try apply ann topn: {}", _ann_topn_runtime->debug_string());
-    size_t src_col_idx = _ann_topn_runtime->get_src_column_idx();
-    ColumnId src_cid = _schema->column_id(src_col_idx);
-    IndexIterator* ann_index_iterator = _index_iterators[src_cid].get();
-    bool has_ann_index = ann_index_iterator != nullptr;
-    bool has_common_expr_push_down = !_common_expr_ctxs_push_down.empty();
-    bool has_column_predicate = std::any_of(_is_pred_column.begin(), _is_pred_column.end(),
-                                            [](bool is_pred) { return is_pred; });
-    if (!has_ann_index || has_common_expr_push_down || has_column_predicate) {
-        VLOG_DEBUG << fmt::format(
-                "Ann topn can not be evaluated by ann index, has_ann_index: {}, "
-                "has_common_expr_push_down: {}, has_column_predicate: {}",
-                has_ann_index, has_common_expr_push_down, has_column_predicate);
-        return Status::OK();
-    }
-
-    // Process asc & desc according to the type of metric
-    auto index_reader = ann_index_iterator->get_reader(AnnIndexReaderType::ANN);
-    auto ann_index_reader = dynamic_cast<AnnIndexReader*>(index_reader.get());
-    DCHECK(ann_index_reader != nullptr);
-    if (ann_index_reader->get_metric_type() == AnnIndexMetric::IP) {
-        if (_ann_topn_runtime->is_asc()) {
-            VLOG_DEBUG << fmt::format(
-                    "Asc topn for inner product can not be evaluated by ann index");
-            return Status::OK();
-        }
-    } else {
-        if (!_ann_topn_runtime->is_asc()) {
-            VLOG_DEBUG << fmt::format("Desc topn for l2/cosine can not be evaluated by ann index");
-            return Status::OK();
-        }
-    }
-
-    if (ann_index_reader->get_metric_type() != _ann_topn_runtime->get_metric_type()) {
-        VLOG_DEBUG << fmt::format(
-                "Ann topn metric type {} not match index metric type {}, can not be evaluated by "
-                "ann index",
-                metric_to_string(_ann_topn_runtime->get_metric_type()),
-                metric_to_string(ann_index_reader->get_metric_type()));
-        return Status::OK();
-    }
-
-    size_t pre_size = _row_bitmap.cardinality();
-    size_t rows_of_segment = _segment->num_rows();
-    if (static_cast<double>(pre_size) < static_cast<double>(rows_of_segment) * 0.3) {
-        VLOG_DEBUG << fmt::format(
-                "Ann topn predicate input rows {} < 30% of segment rows {}, will not use ann index "
-                "to "
-                "filter",
-                pre_size, rows_of_segment);
-        return Status::OK();
-    }
-    vectorized::IColumn::MutablePtr result_column;
-    std::unique_ptr<std::vector<uint64_t>> result_row_ids;
-    segment_v2::AnnIndexStats ann_index_stats;
-    RETURN_IF_ERROR(_ann_topn_runtime->evaluate_vector_ann_search(ann_index_iterator, &_row_bitmap,
-                                                                  rows_of_segment, result_column,
-                                                                  result_row_ids, ann_index_stats));
-
-    VLOG_DEBUG << fmt::format("Ann topn filtered {} - {} = {} rows", pre_size,
-                              _row_bitmap.cardinality(), pre_size - _row_bitmap.cardinality());
-
-    int64_t rows_filterd = pre_size - _row_bitmap.cardinality();
-    _opts.stats->rows_ann_index_topn_filtered += rows_filterd;
-    _opts.stats->ann_index_load_ns += ann_index_stats.load_index_costs_ns.value();
-    _opts.stats->ann_topn_search_ns += ann_index_stats.search_costs_ns.value();
-    _opts.stats->ann_index_topn_engine_search_ns += ann_index_stats.engine_search_ns.value();
-    _opts.stats->ann_index_topn_result_process_ns +=
-            ann_index_stats.result_process_costs_ns.value();
-    _opts.stats->ann_index_topn_engine_convert_ns += ann_index_stats.engine_convert_ns.value();
-    _opts.stats->ann_index_topn_engine_prepare_ns += ann_index_stats.engine_prepare_ns.value();
-    _opts.stats->ann_index_topn_search_cnt += 1;
-    const size_t dst_col_idx = _ann_topn_runtime->get_dest_column_idx();
-    ColumnIterator* column_iter = _column_iterators[_schema->column_id(dst_col_idx)].get();
-    DCHECK(column_iter != nullptr);
-    VirtualColumnIterator* virtual_column_iter = dynamic_cast<VirtualColumnIterator*>(column_iter);
-    DCHECK(virtual_column_iter != nullptr);
-    VLOG_DEBUG << fmt::format(
-            "Virtual column iterator, column_idx {}, is materialized with {} rows", dst_col_idx,
-            result_row_ids->size());
-    // reference count of result_column should be 1, so move will not issue any data copy.
-    virtual_column_iter->prepare_materialization(std::move(result_column),
-                                                 std::move(result_row_ids));
-
     return Status::OK();
 }
 
@@ -1090,25 +992,9 @@ Status SegmentIterator::_apply_index_expr() {
         }
     }
 
-    // Apply ann range search
-    segment_v2::AnnIndexStats ann_index_stats;
-    for (const auto& expr_ctx : _common_expr_ctxs_push_down) {
-        size_t origin_rows = _row_bitmap.cardinality();
-        RETURN_IF_ERROR(expr_ctx->evaluate_ann_range_search(_index_iterators, _schema->column_ids(),
-                                                            _column_iterators, _row_bitmap,
-                                                            ann_index_stats));
-        _opts.stats->rows_ann_index_range_filtered += (origin_rows - _row_bitmap.cardinality());
-        _opts.stats->ann_index_load_ns += ann_index_stats.load_index_costs_ns.value();
-        _opts.stats->ann_index_range_search_ns += ann_index_stats.search_costs_ns.value();
-        _opts.stats->ann_range_engine_search_ns += ann_index_stats.engine_search_ns.value();
-        _opts.stats->ann_range_result_convert_ns += ann_index_stats.result_process_costs_ns.value();
-        _opts.stats->ann_range_engine_convert_ns += ann_index_stats.engine_convert_ns.value();
-        _opts.stats->ann_range_pre_process_ns += ann_index_stats.engine_prepare_ns.value();
-    }
-
     for (auto it = _common_expr_ctxs_push_down.begin(); it != _common_expr_ctxs_push_down.end();) {
         if ((*it)->root()->has_been_executed()) {
-            _opts.stats->ann_index_range_search_cnt++;
+            // _opts.stats->ann_index_range_search_cnt++;
             it = _common_expr_ctxs_push_down.erase(it);
         } else {
             ++it;
@@ -1456,22 +1342,6 @@ Status SegmentIterator::_init_index_iterators() {
                 RETURN_IF_ERROR(_segment->new_index_iterator(column, inverted_index, _opts,
                                                              &_index_iterators[cid]));
             }
-            if (_index_iterators[cid] != nullptr) {
-                _index_iterators[cid]->set_context(_index_query_context);
-            }
-        }
-    }
-
-    // Ann index iterators
-    for (auto cid : _schema->column_ids()) {
-        if (_index_iterators[cid] == nullptr) {
-            const auto& column = _opts.tablet_schema->column(cid);
-            int32_t col_unique_id =
-                    column.is_extracted_column() ? column.parent_unique_id() : column.unique_id();
-            RETURN_IF_ERROR(_segment->new_index_iterator(
-                    column,
-                    _segment->_tablet_schema->ann_index(col_unique_id, column.suffix_path()), _opts,
-                    &_index_iterators[cid]));
             if (_index_iterators[cid] != nullptr) {
                 _index_iterators[cid]->set_context(_index_query_context);
             }

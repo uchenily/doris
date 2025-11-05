@@ -30,7 +30,6 @@
 
 #include "common/status.h" // for Status
 #include "olap/field.h"    // for Field
-#include "olap/rowset/segment_v2/ann_index/ann_index_writer.h"
 #include "olap/rowset/segment_v2/bloom_filter.h"
 #include "olap/rowset/segment_v2/common.h"
 #include "olap/rowset/segment_v2/inverted_index_writer.h"
@@ -65,7 +64,6 @@ struct ColumnWriterOptions {
     bool need_bloom_filter = false;
     bool is_ngram_bf_index = false;
     bool need_inverted_index = false;
-    bool need_ann_index = false;
     uint8_t gram_size;
     uint16_t gram_bf_size;
     BloomFilterOptions bf_options;
@@ -78,7 +76,6 @@ struct ColumnWriterOptions {
     RowsetWriterContext* rowset_ctx = nullptr;
     // For collect segment statistics for compaction
     std::vector<RowsetReaderSharedPtr> input_rs_readers;
-    const TabletIndex* ann_index = nullptr;
     std::string to_string() const {
         std::stringstream ss;
         ss << std::boolalpha << "meta=" << meta->DebugString()
@@ -174,8 +171,6 @@ public:
     virtual Status write_bitmap_index() = 0;
 
     virtual Status write_inverted_index() = 0;
-
-    virtual Status write_ann_index() { return Status::OK(); }
 
     virtual Status write_bloom_filter_index() = 0;
 
@@ -452,7 +447,6 @@ public:
         return Status::OK();
     }
     Status write_inverted_index() override;
-    Status write_ann_index() override;
     Status write_bloom_filter_index() override {
         if (_opts.need_bloom_filter) {
             return Status::NotSupported("array not support bloom filter index");
@@ -493,7 +487,6 @@ private:
     std::unique_ptr<ScalarColumnWriter> _null_writer;
     std::unique_ptr<ColumnWriter> _item_writer;
     std::unique_ptr<IndexColumnWriter> _inverted_index_builder;
-    std::unique_ptr<AnnIndexColumnWriter> _ann_index_writer;
     ColumnWriterOptions _opts;
 };
 

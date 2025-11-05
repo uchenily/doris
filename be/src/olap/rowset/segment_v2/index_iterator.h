@@ -23,14 +23,12 @@
 
 #include "common/exception.h"
 #include "common/factory_creator.h"
-#include "olap/rowset/segment_v2/ann_index/ann_index_reader.h"
 #include "olap/rowset/segment_v2/index_query_context.h"
 #include "olap/rowset/segment_v2/index_reader.h"
 #include "olap/rowset/segment_v2/inverted_index_query_type.h"
 #include "runtime/runtime_state.h"
 
 namespace doris::vectorized {
-struct AnnTopNParam;
 }
 
 namespace doris::segment_v2 {
@@ -38,13 +36,9 @@ namespace doris::segment_v2 {
 class InvertedIndexQueryCacheHandle;
 
 struct InvertedIndexParam;
-using IndexParam = std::variant<InvertedIndexParam*, segment_v2::AnnTopNParam*>;
+using IndexParam = std::variant<InvertedIndexParam*>;
 
-enum class AnnIndexReaderType {
-    ANN = 0,
-};
-
-using IndexReaderType = std::variant<InvertedIndexReaderType, AnnIndexReaderType>;
+using IndexReaderType = std::variant<InvertedIndexReaderType>;
 class IndexIterator {
 public:
     IndexIterator() = default;
