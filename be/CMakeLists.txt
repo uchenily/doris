@@ -521,8 +521,6 @@ set(DORIS_LINK_LIBS
     Util
     DorisGen
     Webserver
-    Geo
-    GeoType
     Vec
     Pipeline
     Cloud
@@ -818,7 +816,6 @@ add_subdirectory(${SRC_DIR}/common)
 add_subdirectory(${SRC_DIR}/exec)
 add_subdirectory(${SRC_DIR}/exprs)
 add_subdirectory(${SRC_DIR}/gen_cpp)
-add_subdirectory(${SRC_DIR}/geo)
 add_subdirectory(${SRC_DIR}/http)
 add_subdirectory(${SRC_DIR}/io)
 add_subdirectory(${SRC_DIR}/olap/rowset/segment_v2/ann_index)

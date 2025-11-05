@@ -98,7 +98,6 @@ void register_function_map(SimpleFunctionFactory& factory);
 void register_function_struct(SimpleFunctionFactory& factory);
 void register_function_struct_element(SimpleFunctionFactory& factory);
 void register_function_variant_element(SimpleFunctionFactory& factory);
-void register_function_geo(SimpleFunctionFactory& factory);
 void register_function_multi_string_position(SimpleFunctionFactory& factory);
 void register_function_multi_string_search(SimpleFunctionFactory& factory);
 void register_function_width_bucket(SimpleFunctionFactory& factory);
@@ -322,7 +321,6 @@ public:
             register_function_map(instance);
             register_function_struct(instance);
             register_function_struct_element(instance);
-            register_function_geo(instance);
             register_function_url(instance);
             register_function_multi_string_position(instance);
             register_function_multi_string_search(instance);
