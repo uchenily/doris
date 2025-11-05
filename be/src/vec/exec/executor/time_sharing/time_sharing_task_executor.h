@@ -82,7 +82,7 @@ public:
         int max_thread_num;
         int min_thread_num;
         int max_queue_size = std::numeric_limits<int>::max();
-        std::weak_ptr<CgroupCpuCtl> cgroup_cpu_ctl;
+        // std::weak_ptr<CgroupCpuCtl> cgroup_cpu_ctl;
     };
 
     TimeSharingTaskExecutor(ThreadConfig config, int min_concurrency,
@@ -256,7 +256,7 @@ private:
     int _min_threads;
     int _max_threads;
     const int _max_queue_size;
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
+    // std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
     const std::chrono::milliseconds _idle_timeout {std::chrono::milliseconds(500)};
 
     const int _min_concurrency;

@@ -23,7 +23,6 @@
 #include <mutex>
 #include <string>
 
-#include "agent/be_exec_version_manager.h"
 #include "vec/functions/function.h"
 
 namespace doris::vectorized {
@@ -184,7 +183,7 @@ public:
 
     FunctionBasePtr get_function(const std::string& name, const ColumnsWithTypeAndName& arguments,
                                  const DataTypePtr& return_type, const FunctionAttr& attr = {},
-                                 int be_version = BeExecVersionManager::get_newest_version()) {
+                                 int be_version = 0) {
         std::string key_str = name;
 
         if (function_alias.contains(name)) {

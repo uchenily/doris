@@ -206,7 +206,7 @@ TimeSharingTaskExecutor::TimeSharingTaskExecutor(ThreadConfig thread_config, int
           _min_threads(thread_config.min_thread_num),
           _max_threads(thread_config.max_thread_num),
           _max_queue_size(thread_config.max_queue_size),
-          _cgroup_cpu_ctl(thread_config.cgroup_cpu_ctl),
+          // _cgroup_cpu_ctl(thread_config.cgroup_cpu_ctl),
           _min_concurrency(min_concurrency),
           _guaranteed_concurrency_per_task(guaranteed_concurrency_per_task),
           _max_concurrency_per_task(max_concurrency_per_task),
@@ -492,9 +492,9 @@ void TimeSharingTaskExecutor::_dispatch_thread() {
     _num_threads++;
     _num_threads_pending_start--;
 
-    if (std::shared_ptr<CgroupCpuCtl> cg_cpu_ctl_sptr = _cgroup_cpu_ctl.lock()) {
-        static_cast<void>(cg_cpu_ctl_sptr->add_thread_to_cgroup());
-    }
+    // if (std::shared_ptr<CgroupCpuCtl> cg_cpu_ctl_sptr = _cgroup_cpu_ctl.lock()) {
+    //     static_cast<void>(cg_cpu_ctl_sptr->add_thread_to_cgroup());
+    // }
 
     // Owned by this worker thread and added/removed from _idle_threads as needed.
     IdleThread me;

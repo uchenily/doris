@@ -29,7 +29,7 @@
 #include <utility>
 #include <vector>
 
-#include "agent/be_exec_version_manager.h"
+// #include "agent/be_exec_version_manager.h"
 #include "vec/columns/column.h"
 #include "vec/columns/column_variant.h"
 #include "vec/common/assert_cast.h"

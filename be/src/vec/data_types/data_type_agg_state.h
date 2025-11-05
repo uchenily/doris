@@ -43,11 +43,11 @@ public:
               _be_exec_version(be_exec_version) {
         _agg_function = AggregateFunctionSimpleFactory::instance().get(
                 _function_name, _sub_types, _result_is_nullable, _be_exec_version);
-        if (_agg_function == nullptr ||
-            !BeExecVersionManager::check_be_exec_version(be_exec_version)) {
-            throw Exception(ErrorCode::INVALID_ARGUMENT,
-                            "DataTypeAggState function get failed, type={}", do_get_name());
-        }
+        // if (_agg_function == nullptr ||
+        //     !BeExecVersionManager::check_be_exec_version(be_exec_version)) {
+        //     throw Exception(ErrorCode::INVALID_ARGUMENT,
+        //                     "DataTypeAggState function get failed, type={}", do_get_name());
+        // }
         _agg_function->set_version(be_exec_version);
         _agg_serialized_type = _agg_function->get_serialized_type();
     }
@@ -116,8 +116,8 @@ public:
     DataTypePtr get_serialized_type() const { return _agg_serialized_type; }
 
     void check_function_compatibility(int read_be_exec_version) const {
-        BeExecVersionManager::check_function_compatibility(read_be_exec_version, _be_exec_version,
-                                                           get_nested_function()->get_name());
+        // BeExecVersionManager::check_function_compatibility(read_be_exec_version, _be_exec_version,
+        //                                                    get_nested_function()->get_name());
     }
 
 private:

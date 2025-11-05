@@ -56,7 +56,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "agent/utils.h"
 #include "common/config.h"
 #include "common/consts.h"
 #include "common/logging.h"

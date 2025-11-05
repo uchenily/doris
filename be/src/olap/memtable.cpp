@@ -113,11 +113,15 @@ void MemTable::_init_agg_functions(const vectorized::Block* block) {
                 function = vectorized::AggregateFunctionSimpleFactory::instance().get(
                         "replace_load", {block->get_data_type(cid)},
                         block->get_data_type(cid)->is_nullable(),
-                        BeExecVersionManager::get_newest_version());
+                        // BeExecVersionManager::get_newest_version()
+                    0
+                );
             } else {
                 function = vectorized::AggregateFunctionSimpleFactory::instance().get(
                         "bitmap_intersect", {block->get_data_type(cid)}, false,
-                        BeExecVersionManager::get_newest_version());
+                        // BeExecVersionManager::get_newest_version()
+                    0
+                );
             }
         } else {
             function = _tablet_schema->column(cid).get_aggregate_function(

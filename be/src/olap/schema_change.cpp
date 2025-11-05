@@ -30,7 +30,6 @@
 #include <tuple>
 #include <utility>
 
-#include "agent/be_exec_version_manager.h"
 #include "cloud/cloud_schema_change_job.h"
 #include "cloud/config.h"
 #include "common/cast_set.h"

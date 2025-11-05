@@ -60,7 +60,6 @@
 #include <curl/curl.h>
 #include <thrift/TOutput.h>
 
-#include "agent/heartbeat_server.h"
 #include "common/config.h"
 #include "common/daemon.h"
 #include "common/logging.h"
@@ -575,18 +574,18 @@ int main(int argc, char** argv) {
     // status = http_service->start();
     // stop_work_if_error(status, "Doris Be http service did not start correctly, exiting");
 
-    // 4. heart beat server
-    doris::ClusterInfo* cluster_info = exec_env->cluster_info();
-    std::unique_ptr<doris::ThriftServer> heartbeat_thrift_server;
-    doris::Status heartbeat_status = doris::create_heartbeat_server(
-            exec_env, doris::config::heartbeat_service_port, &heartbeat_thrift_server,
-            doris::config::heartbeat_service_thread_count, cluster_info);
-
-    stop_work_if_error(heartbeat_status, "Heartbeat services did not start correctly, exiting");
-
-    status = heartbeat_thrift_server->start();
-    stop_work_if_error(status, "Doris BE HeartBeat Service did not start correctly, exiting: " +
-                                       status.to_string());
+    // // 4. heart beat server
+    // doris::ClusterInfo* cluster_info = exec_env->cluster_info();
+    // std::unique_ptr<doris::ThriftServer> heartbeat_thrift_server;
+    // doris::Status heartbeat_status = doris::create_heartbeat_server(
+    //         exec_env, doris::config::heartbeat_service_port, &heartbeat_thrift_server,
+    //         doris::config::heartbeat_service_thread_count, cluster_info);
+    //
+    // stop_work_if_error(heartbeat_status, "Heartbeat services did not start correctly, exiting");
+    //
+    // status = heartbeat_thrift_server->start();
+    // stop_work_if_error(status, "Doris BE HeartBeat Service did not start correctly, exiting: " +
+    //                                    status.to_string());
 
     // 5. arrow flight service
     std::shared_ptr<doris::flight::FlightSqlServer> flight_server =
@@ -626,9 +625,9 @@ int main(int argc, char** argv) {
     daemon.stop();
     flight_server.reset();
     LOG(INFO) << "Flight server stopped.";
-    heartbeat_thrift_server->stop();
-    heartbeat_thrift_server.reset(nullptr);
-    LOG(INFO) << "Heartbeat server stopped";
+    // heartbeat_thrift_server->stop();
+    // heartbeat_thrift_server.reset(nullptr);
+    // LOG(INFO) << "Heartbeat server stopped";
     // // TODO(zhiqiang): http_service
     // http_service->stop();
     // http_service.reset(nullptr);

@@ -38,7 +38,6 @@
 #include <string>
 #include <unordered_set>
 
-#include "agent/cgroup_cpu_ctl.h"
 #include "common/status.h"
 #include "util/metrics.h"
 #include "util/uid_util.h"
@@ -110,7 +109,6 @@ public:
     ThreadPoolBuilder& set_min_threads(int min_threads);
     ThreadPoolBuilder& set_max_threads(int max_threads);
     ThreadPoolBuilder& set_max_queue_size(int max_queue_size);
-    ThreadPoolBuilder& set_cgroup_cpu_ctl(std::weak_ptr<CgroupCpuCtl> cgroup_cpu_ctl);
     template <class Rep, class Period>
     ThreadPoolBuilder& set_idle_timeout(const std::chrono::duration<Rep, Period>& idle_timeout) {
         _idle_timeout = std::chrono::duration_cast<std::chrono::milliseconds>(idle_timeout);
@@ -140,7 +138,6 @@ private:
     int _min_threads;
     int _max_threads;
     int _max_queue_size;
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
     std::chrono::milliseconds _idle_timeout;
 
     template <typename T>
@@ -366,8 +363,6 @@ private:
     //
     // Protected by _lock.
     int _total_queued_tasks;
-
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
 
     // All allocated tokens.
     //

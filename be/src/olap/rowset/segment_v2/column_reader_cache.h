@@ -16,7 +16,7 @@
 // under the License.
 #pragma once
 
-#include "agent/be_exec_version_manager.h"
+// #include "agent/be_exec_version_manager.h"
 #include "io/fs/file_reader.h"
 #include "olap/rowset/segment_v2/column_reader.h"
 
@@ -71,7 +71,8 @@ private:
     std::list<CacheNode> _lru_list;
     // Map from key to list iterator for O(1) access
     std::unordered_map<ColumnReaderCacheKey, std::list<CacheNode>::iterator> _cache_map;
-    int _be_exec_version = BeExecVersionManager::get_newest_version();
+    // int _be_exec_version = BeExecVersionManager::get_newest_version();
+    int _be_exec_version = 0;
     // ATTN: Do not use share_ptr, reference will be recycled
     Segment* _segment;
 };

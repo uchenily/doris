@@ -60,7 +60,7 @@ Status TaskScheduler::start() {
                             .set_min_threads(_num_threads)
                             .set_max_threads(_num_threads)
                             .set_max_queue_size(0)
-                            .set_cgroup_cpu_ctl(_cgroup_cpu_ctl)
+                            // .set_cgroup_cpu_ctl(_cgroup_cpu_ctl)
                             .build(&_fix_thread_pool));
     LOG_INFO("TaskScheduler set cores").tag("size", _num_threads);
     for (int32_t i = 0; i < _num_threads; ++i) {

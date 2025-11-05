@@ -36,7 +36,6 @@
 #include <utility>
 #include <vector>
 
-#include "agent/be_exec_version_manager.h"
 #include "cctz/time_zone.h"
 #include "common/be_mock_util.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
@@ -372,9 +371,10 @@ public:
     int32_t runtime_filter_max_in_num() const { return _query_options.runtime_filter_max_in_num; }
 
     int be_exec_version() const {
-        DCHECK(_query_options.__isset.be_exec_version &&
-               BeExecVersionManager::check_be_exec_version(_query_options.be_exec_version));
-        return _query_options.be_exec_version;
+        // DCHECK(_query_options.__isset.be_exec_version &&
+        //        BeExecVersionManager::check_be_exec_version(_query_options.be_exec_version));
+        // return _query_options.be_exec_version;
+        return 0;
     }
     bool enable_local_shuffle() const {
         return _query_options.__isset.enable_local_shuffle && _query_options.enable_local_shuffle;
@@ -424,7 +424,8 @@ public:
     }
 
     bool skip_missing_version() const {
-        return _query_options.__isset.skip_missing_version && _query_options.skip_missing_version;
+        // return _query_options.__isset.skip_missing_version && _query_options.skip_missing_version;
+        return 0;
     }
 
     int64_t data_queue_max_blocks() const {

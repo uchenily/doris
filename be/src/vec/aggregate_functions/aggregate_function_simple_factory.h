@@ -28,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "agent/be_exec_version_manager.h"
 #include "vec/aggregate_functions/aggregate_function.h"
 #include "vec/common/assert_cast.h"
 #include "vec/data_types/data_type.h"
@@ -171,17 +170,18 @@ public:
 
     void register_alternative_function(const std::string& name, const Creator& creator,
                                        bool nullable, int old_be_exec_version) {
-        auto new_name = name + BeExecVersionManager::get_function_suffix(old_be_exec_version);
+        // auto new_name = name + BeExecVersionManager::get_function_suffix(old_be_exec_version);
+        auto new_name = name + "???";
         register_function(new_name, creator, nullable);
-        BeExecVersionManager::registe_old_function_compatibility(old_be_exec_version, name);
+        // BeExecVersionManager::registe_old_function_compatibility(old_be_exec_version, name);
     }
 
     void temporary_function_update(int fe_version_now, std::string& name) {
-        int old_version = BeExecVersionManager::get_function_compatibility(fe_version_now, name);
-        if (!old_version) {
-            return;
-        }
-        name = name + BeExecVersionManager::get_function_suffix(old_version);
+        // int old_version = BeExecVersionManager::get_function_compatibility(fe_version_now, name);
+        // if (!old_version) {
+        //     return;
+        // }
+        // name = name + BeExecVersionManager::get_function_suffix(old_version);
     }
 
     static AggregateFunctionSimpleFactory& instance();

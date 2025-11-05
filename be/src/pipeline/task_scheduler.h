@@ -60,11 +60,10 @@ public:
 private:
     friend class HybridTaskScheduler;
 
-    TaskScheduler(int core_num, std::string name, std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl)
+    TaskScheduler(int core_num, std::string name)
             : _name(std::move(name)),
               _task_queue(core_num),
-              _num_threads(core_num),
-              _cgroup_cpu_ctl(cgroup_cpu_ctl) {}
+              _num_threads(core_num) {}
     TaskScheduler() : _task_queue(0), _num_threads(0) {}
     std::string _name;
     std::unique_ptr<ThreadPool> _fix_thread_pool;
@@ -73,18 +72,16 @@ private:
     bool _need_to_stop = false;
     bool _shutdown = false;
     const int _num_threads;
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
+    // std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
 
     void _do_work(int index);
 };
 
 class HybridTaskScheduler MOCK_REMOVE(final) : public TaskScheduler {
 public:
-    HybridTaskScheduler(int exec_thread_num, int blocking_exec_thread_num, std::string name,
-                        std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl)
-            : _blocking_scheduler(blocking_exec_thread_num, name + "_blocking_scheduler",
-                                  cgroup_cpu_ctl),
-              _simple_scheduler(exec_thread_num, name + "_simple_scheduler", cgroup_cpu_ctl) {}
+    HybridTaskScheduler(int exec_thread_num, int blocking_exec_thread_num, std::string name)
+            : _blocking_scheduler(blocking_exec_thread_num, name + "_blocking_scheduler"),
+              _simple_scheduler(exec_thread_num, name + "_simple_scheduler") {}
 
     Status submit(PipelineTaskSPtr task) override;
 

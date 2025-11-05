@@ -17,7 +17,6 @@
 
 #include "vec/spill/spill_writer.h"
 
-#include "agent/be_exec_version_manager.h"
 #include "common/status.h"
 #include "io/fs/local_file_system.h"
 #include "io/fs/local_file_writer.h"
@@ -116,7 +115,7 @@ Status SpillWriter::_write_internal(const Block& block, size_t& written_bytes) {
             PBlock pblock;
             SCOPED_TIMER(_serialize_timer);
             status = block.serialize(
-                    BeExecVersionManager::get_newest_version(), &pblock, &uncompressed_bytes,
+                    0, &pblock, &uncompressed_bytes,
                     &compressed_bytes,
                     segment_v2::CompressionTypePB::ZSTD); // ZSTD for better compression ratio
             RETURN_IF_ERROR(status);

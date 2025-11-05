@@ -26,7 +26,7 @@
 
 namespace doris {
 
-class CgroupCpuCtl;
+// class CgroupCpuCtl;
 
 namespace vectorized {
 class Block;

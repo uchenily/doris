@@ -39,7 +39,7 @@ class MemTrackerLimiter;
 class RuntimeProfile;
 class ThreadPool;
 class ExecEnv;
-class CgroupCpuCtl;
+// class CgroupCpuCtl;
 class QueryContext;
 class IOThrottle;
 class ResourceContext;
@@ -195,7 +195,7 @@ public:
     }
     void create_cgroup_cpu_ctl();
 
-    std::weak_ptr<CgroupCpuCtl> get_cgroup_cpu_ctl_wptr();
+    // std::weak_ptr<CgroupCpuCtl> get_cgroup_cpu_ctl_wptr();
 
     std::shared_ptr<WorkloadGroupMetrics> get_metrics() { return _wg_metrics; }
 
@@ -210,8 +210,9 @@ private:
 
     void create_cgroup_cpu_ctl_no_lock();
     void upsert_cgroup_cpu_ctl_no_lock(WorkloadGroupInfo* wg_info);
-    Status upsert_thread_pool_no_lock(WorkloadGroupInfo* wg_info,
-                                      std::shared_ptr<CgroupCpuCtl> cg_cpu_ctl_ptr);
+    Status upsert_thread_pool_no_lock(WorkloadGroupInfo* wg_info
+                                      // std::shared_ptr<CgroupCpuCtl> cg_cpu_ctl_ptr
+                                      );
 
     std::string _memory_debug_string() const;
 
@@ -248,7 +249,7 @@ private:
     // _cgroup_cpu_ctl not only used by threadpool which managed by WorkloadGroup,
     // but also some global background threadpool which not owned by WorkloadGroup,
     // so it should be shared ptr;
-    std::shared_ptr<CgroupCpuCtl> _cgroup_cpu_ctl {nullptr};
+    // std::shared_ptr<CgroupCpuCtl> _cgroup_cpu_ctl {nullptr};
     std::unique_ptr<doris::pipeline::TaskScheduler> _task_sched {nullptr};
     std::unique_ptr<vectorized::SimplifiedScanScheduler> _scan_task_sched {nullptr};
     std::unique_ptr<vectorized::SimplifiedScanScheduler> _remote_scan_task_sched {nullptr};

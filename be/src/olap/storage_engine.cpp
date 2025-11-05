@@ -47,7 +47,7 @@
 #include <unordered_set>
 #include <utility>
 
-#include "agent/task_worker_pool.h"
+// #include "agent/task_worker_pool.h"
 #include "cloud/cloud_storage_engine.h"
 #include "common/config.h"
 #include "common/logging.h"
@@ -1441,38 +1441,38 @@ Status StorageEngine::load_header(const string& shard_path, const TCloneReq& req
 }
 
 void BaseStorageEngine::register_report_listener(ReportWorker* listener) {
-    std::lock_guard<std::mutex> l(_report_mtx);
-    if (std::find(_report_listeners.begin(), _report_listeners.end(), listener) !=
-        _report_listeners.end()) [[unlikely]] {
-        return;
-    }
-    _report_listeners.push_back(listener);
+    // std::lock_guard<std::mutex> l(_report_mtx);
+    // if (std::find(_report_listeners.begin(), _report_listeners.end(), listener) !=
+    //     _report_listeners.end()) [[unlikely]] {
+    //     return;
+    // }
+    // _report_listeners.push_back(listener);
 }
 
 void BaseStorageEngine::deregister_report_listener(ReportWorker* listener) {
-    std::lock_guard<std::mutex> l(_report_mtx);
-    if (auto it = std::find(_report_listeners.begin(), _report_listeners.end(), listener);
-        it != _report_listeners.end()) {
-        _report_listeners.erase(it);
-    }
+    // std::lock_guard<std::mutex> l(_report_mtx);
+    // if (auto it = std::find(_report_listeners.begin(), _report_listeners.end(), listener);
+    //     it != _report_listeners.end()) {
+    //     _report_listeners.erase(it);
+    // }
 }
 
 void BaseStorageEngine::notify_listeners() {
-    std::lock_guard<std::mutex> l(_report_mtx);
-    for (auto& listener : _report_listeners) {
-        listener->notify();
-    }
+    // std::lock_guard<std::mutex> l(_report_mtx);
+    // for (auto& listener : _report_listeners) {
+    //     listener->notify();
+    // }
 }
 
 bool BaseStorageEngine::notify_listener(std::string_view name) {
     bool found = false;
-    std::lock_guard<std::mutex> l(_report_mtx);
-    for (auto& listener : _report_listeners) {
-        if (listener->name() == name) {
-            listener->notify();
-            found = true;
-        }
-    }
+    // std::lock_guard<std::mutex> l(_report_mtx);
+    // for (auto& listener : _report_listeners) {
+    //     if (listener->name() == name) {
+    //         listener->notify();
+    //         found = true;
+    //     }
+    // }
     return found;
 }
 
@@ -1739,8 +1739,8 @@ Status StorageEngine::submit_clone_task(Tablet* tablet, int64_t version) {
             .tag("replica_id", tablet->replica_id())
             .tag("partition_id", tablet->partition_id())
             .tag("table_id", tablet->table_id());
-    RETURN_IF_ERROR(assert_cast<PriorTaskWorkerPool*>(workers->at(TTaskType::CLONE).get())
-                            ->submit_high_prior_and_cancel_low(task));
+    // RETURN_IF_ERROR(assert_cast<PriorTaskWorkerPool*>(workers->at(TTaskType::CLONE).get())
+    //                         ->submit_high_prior_and_cancel_low(task));
     return Status::OK();
 }
 

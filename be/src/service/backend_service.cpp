@@ -665,7 +665,8 @@ struct IngestBinlogArg {
 } // namespace
 
 BaseBackendService::BaseBackendService(ExecEnv* exec_env)
-        : _exec_env(exec_env), _agent_server(new AgentServer(exec_env, exec_env->cluster_info())) {}
+        : _exec_env(exec_env) {}
+    // , _agent_server(new AgentServer(exec_env, exec_env->cluster_info())) {}
 
 BaseBackendService::~BaseBackendService() = default;
 
@@ -677,7 +678,8 @@ BackendService::~BackendService() = default;
 Status BackendService::create_service(StorageEngine& engine, ExecEnv* exec_env, int port,
                                       std::unique_ptr<ThriftServer>* server,
                                       std::shared_ptr<doris::BackendService> service) {
-    service->_agent_server->start_workers(engine, exec_env);
+    // service->_agent_server->start_workers(engine, exec_env);
+    
     // TODO: do we want a BoostThreadFactory?
     // TODO: we want separate thread factories here, so that fe requests can't starve
     // be requests

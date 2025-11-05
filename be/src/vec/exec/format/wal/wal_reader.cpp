@@ -19,7 +19,6 @@
 
 #include <absl/strings/str_split.h>
 
-#include "agent/be_exec_version_manager.h"
 #include "common/logging.h"
 #include "cpp/sync_point.h"
 #include "olap/wal/wal_manager.h"
@@ -54,11 +53,11 @@ Status WalReader::get_next_block(Block* block, size_t* read_rows, bool* eof) {
         LOG(WARNING) << "Failed to read wal on path = " << _wal_path;
         return st;
     }
-    int be_exec_version = pblock.has_be_exec_version() ? pblock.be_exec_version() : 0;
-    if (!BeExecVersionManager::check_be_exec_version(be_exec_version)) {
-        return Status::DataQualityError("check be exec version fail when reading wal file {}",
-                                        _wal_path);
-    }
+    // int be_exec_version = pblock.has_be_exec_version() ? pblock.be_exec_version() : 0;
+    // if (!BeExecVersionManager::check_be_exec_version(be_exec_version)) {
+    //     return Status::DataQualityError("check be exec version fail when reading wal file {}",
+    //                                     _wal_path);
+    // }
     Block src_block;
     RETURN_IF_ERROR(src_block.deserialize(pblock));
     //convert to dst block

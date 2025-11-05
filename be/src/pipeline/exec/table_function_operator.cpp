@@ -44,17 +44,17 @@ Status TableFunctionLocalState::init(RuntimeState* state, LocalStateInfo& info) 
 }
 
 Status TableFunctionLocalState::_clone_table_function(RuntimeState* state) {
-    auto& p = _parent->cast<TableFunctionOperatorX>();
-    _vfn_ctxs.resize(p._vfn_ctxs.size());
-    for (size_t i = 0; i < _vfn_ctxs.size(); i++) {
-        RETURN_IF_ERROR(p._vfn_ctxs[i]->clone(state, _vfn_ctxs[i]));
-
-        vectorized::TableFunction* fn = nullptr;
-        RETURN_IF_ERROR(vectorized::TableFunctionFactory::get_fn(
-                _vfn_ctxs[i]->root()->fn(), state->obj_pool(), &fn, state->be_exec_version()));
-        fn->set_expr_context(_vfn_ctxs[i]);
-        _fns.push_back(fn);
-    }
+    // auto& p = _parent->cast<TableFunctionOperatorX>();
+    // _vfn_ctxs.resize(p._vfn_ctxs.size());
+    // for (size_t i = 0; i < _vfn_ctxs.size(); i++) {
+    //     RETURN_IF_ERROR(p._vfn_ctxs[i]->clone(state, _vfn_ctxs[i]));
+    //
+    //     vectorized::TableFunction* fn = nullptr;
+    //     RETURN_IF_ERROR(vectorized::TableFunctionFactory::get_fn(
+    //             _vfn_ctxs[i]->root()->fn(), state->obj_pool(), &fn, state->be_exec_version()));
+    //     fn->set_expr_context(_vfn_ctxs[i]);
+    //     _fns.push_back(fn);
+    // }
     return Status::OK();
 }
 
@@ -268,24 +268,24 @@ Status TableFunctionOperatorX::_prepare_output_slot_ids(const TPlanNode& tnode) 
 }
 
 Status TableFunctionOperatorX::init(const TPlanNode& tnode, RuntimeState* state) {
-    RETURN_IF_ERROR(Base::init(tnode, state));
-
-    for (const TExpr& texpr : tnode.table_function_node.fnCallExprList) {
-        vectorized::VExprContextSPtr ctx;
-        RETURN_IF_ERROR(vectorized::VExpr::create_expr_tree(texpr, ctx));
-        _vfn_ctxs.push_back(ctx);
-
-        auto root = ctx->root();
-        vectorized::TableFunction* fn = nullptr;
-        RETURN_IF_ERROR(vectorized::TableFunctionFactory::get_fn(root->fn(), _pool, &fn,
-                                                                 state->be_exec_version()));
-        fn->set_expr_context(ctx);
-        _fns.push_back(fn);
-    }
-    _fn_num = cast_set<int>(_fns.size());
-
-    // Prepare output slot ids
-    RETURN_IF_ERROR(_prepare_output_slot_ids(tnode));
+    // RETURN_IF_ERROR(Base::init(tnode, state));
+    //
+    // for (const TExpr& texpr : tnode.table_function_node.fnCallExprList) {
+    //     vectorized::VExprContextSPtr ctx;
+    //     RETURN_IF_ERROR(vectorized::VExpr::create_expr_tree(texpr, ctx));
+    //     _vfn_ctxs.push_back(ctx);
+    //
+    //     auto root = ctx->root();
+    //     vectorized::TableFunction* fn = nullptr;
+    //     RETURN_IF_ERROR(vectorized::TableFunctionFactory::get_fn(root->fn(), _pool, &fn,
+    //                                                              state->be_exec_version()));
+    //     fn->set_expr_context(ctx);
+    //     _fns.push_back(fn);
+    // }
+    // _fn_num = cast_set<int>(_fns.size());
+    //
+    // // Prepare output slot ids
+    // RETURN_IF_ERROR(_prepare_output_slot_ids(tnode));
     return Status::OK();
 }
 

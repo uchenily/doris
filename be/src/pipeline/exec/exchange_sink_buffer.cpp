@@ -176,11 +176,11 @@ Status ExchangeSinkBuffer::add_block(vectorized::Channel* channel, TransmitInfo&
             send_now = true;
             instance_data.rpc_channel_is_idle = false;
         }
-        if (request.block) {
-            RETURN_IF_ERROR(
-                    BeExecVersionManager::check_be_exec_version(request.block->be_exec_version()));
-            COUNTER_UPDATE(channel->_parent->memory_used_counter(), request.block->ByteSizeLong());
-        }
+        // if (request.block) {
+        //     RETURN_IF_ERROR(
+        //             BeExecVersionManager::check_be_exec_version(request.block->be_exec_version()));
+        //     COUNTER_UPDATE(channel->_parent->memory_used_counter(), request.block->ByteSizeLong());
+        // }
         instance_data.package_queue[channel].emplace(std::move(request));
         _total_queue_size++;
         if (_total_queue_size > _queue_capacity) {
@@ -218,10 +218,10 @@ Status ExchangeSinkBuffer::add_block(vectorized::Channel* channel,
             send_now = true;
             instance_data.rpc_channel_is_idle = false;
         }
-        if (request.block_holder->get_block()) {
-            RETURN_IF_ERROR(BeExecVersionManager::check_be_exec_version(
-                    request.block_holder->get_block()->be_exec_version()));
-        }
+        // if (request.block_holder->get_block()) {
+        //     RETURN_IF_ERROR(BeExecVersionManager::check_be_exec_version(
+        //             request.block_holder->get_block()->be_exec_version()));
+        // }
         instance_data.broadcast_package_queue[channel].emplace(request);
     }
     if (send_now) {

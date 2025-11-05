@@ -508,7 +508,6 @@ set(KRB5_LIBS
 # Set Doris libraries
 set(DORIS_LINK_LIBS
     ${WL_START_GROUP}
-    Agent
     Common
     Exec
     Exprs
@@ -810,7 +809,6 @@ function(pch_reuse target)
 endfunction(pch_reuse target)
 
 
-add_subdirectory(${SRC_DIR}/agent)
 add_subdirectory(${SRC_DIR}/common)
 add_subdirectory(${SRC_DIR}/exec)
 add_subdirectory(${SRC_DIR}/exprs)

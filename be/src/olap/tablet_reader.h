@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "agent/be_exec_version_manager.h"
 #include "common/status.h"
 #include "exprs/function_filter.h"
 #include "io/io_common.h"
@@ -106,10 +105,11 @@ public:
         }
 
         int get_be_exec_version() const {
-            if (runtime_state) {
-                return runtime_state->be_exec_version();
-            }
-            return BeExecVersionManager::get_newest_version();
+            // if (runtime_state) {
+            //     return runtime_state->be_exec_version();
+            // }
+            // return BeExecVersionManager::get_newest_version();
+            return 0;
         }
 
         void set_read_source(TabletReadSource read_source, bool skip_delete_bitmap = false) {

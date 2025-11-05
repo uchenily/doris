@@ -23,8 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "agent/agent_server.h"
-#include "agent/topic_subscriber.h"
 #include "common/status.h"
 #include "runtime/stream_load/stream_load_recorder.h"
 
@@ -65,16 +63,16 @@ public:
     // Agent service
     void submit_tasks(TAgentResult& return_value,
                       const std::vector<TAgentTaskRequest>& tasks) override {
-        _agent_server->submit_tasks(return_value, tasks);
+        // _agent_server->submit_tasks(return_value, tasks);
     }
 
     void publish_cluster_state(TAgentResult& result, const TAgentPublishRequest& request) override {
-        _agent_server->publish_cluster_state(result, request);
+        // _agent_server->publish_cluster_state(result, request);
     }
 
     void publish_topic_info(TPublishTopicResult& result,
                             const TPublishTopicRequest& topic_request) override {
-        _agent_server->get_topic_subscriber()->handle_topic_info(topic_request);
+        // _agent_server->get_topic_subscriber()->handle_topic_info(topic_request);
     }
 
     void submit_routine_load_task(TStatus& t_status,
@@ -141,14 +139,16 @@ public:
     void warm_up_tablets(TWarmUpTabletsResponse& response,
                          const TWarmUpTabletsRequest& request) override;
 
-    void stop_works() { _agent_server->stop_report_workers(); }
+    void stop_works() { 
+        // _agent_server->stop_report_workers(); 
+    }
 
 protected:
     void get_stream_load_record(TStreamLoadRecordResult& result, int64_t last_stream_record_time,
                                 std::shared_ptr<StreamLoadRecorder> stream_load_recorder);
 
     ExecEnv* _exec_env = nullptr;
-    std::unique_ptr<AgentServer> _agent_server;
+    // std::unique_ptr<AgentServer> _agent_server;
     std::unique_ptr<ThreadPool> _ingest_binlog_workers;
 };
 

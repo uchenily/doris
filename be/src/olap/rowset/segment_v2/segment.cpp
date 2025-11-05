@@ -229,9 +229,6 @@ Status Segment::_open_index_file_reader() {
 
 Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_options,
                              std::unique_ptr<RowwiseIterator>* iter) {
-    if (read_options.runtime_state != nullptr) {
-        _be_exec_version = read_options.runtime_state->be_exec_version();
-    }
     RETURN_IF_ERROR(_create_column_meta_once(read_options.stats));
 
     read_options.stats->total_segment_number++;
@@ -728,9 +725,6 @@ Status Segment::new_column_iterator(const TabletColumn& tablet_column,
                                     const StorageReadOptions* opt,
                                     const std::unordered_map<int32_t, PathToSparseColumnCacheUPtr>*
                                             variant_sparse_column_cache) {
-    if (opt->runtime_state != nullptr) {
-        _be_exec_version = opt->runtime_state->be_exec_version();
-    }
     RETURN_IF_ERROR(_create_column_meta_once(opt->stats));
 
     // For compability reason unique_id may less than 0 for variant extracted column
@@ -843,9 +837,6 @@ Status Segment::new_bitmap_index_iterator(const TabletColumn& tablet_column,
 Status Segment::new_index_iterator(const TabletColumn& tablet_column, const TabletIndex* index_meta,
                                    const StorageReadOptions& read_options,
                                    std::unique_ptr<IndexIterator>* iter) {
-    if (read_options.runtime_state != nullptr) {
-        _be_exec_version = read_options.runtime_state->be_exec_version();
-    }
     RETURN_IF_ERROR(_create_column_meta_once(read_options.stats));
     std::shared_ptr<ColumnReader> reader;
     auto st = get_column_reader(tablet_column, &reader, read_options.stats);

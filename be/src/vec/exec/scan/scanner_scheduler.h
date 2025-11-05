@@ -158,10 +158,10 @@ public:
 class ThreadPoolSimplifiedScanScheduler : public SimplifiedScanScheduler {
 public:
     ThreadPoolSimplifiedScanScheduler(std::string sched_name,
-                                      std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl,
+                                      // std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl,
                                       std::string workload_group = "system")
             : _is_stop(false),
-              _cgroup_cpu_ctl(cgroup_cpu_ctl),
+              // _cgroup_cpu_ctl(cgroup_cpu_ctl),
               _sched_name(sched_name),
               _workload_group(workload_group) {}
 
@@ -183,7 +183,7 @@ public:
                                 .set_min_threads(min_thread_num)
                                 .set_max_threads(max_thread_num)
                                 .set_max_queue_size(queue_size)
-                                .set_cgroup_cpu_ctl(_cgroup_cpu_ctl)
+                                // .set_cgroup_cpu_ctl(_cgroup_cpu_ctl)
                                 .build(&_scan_thread_pool));
         return Status::OK();
     }
@@ -271,7 +271,7 @@ public:
 private:
     std::unique_ptr<ThreadPool> _scan_thread_pool;
     std::atomic<bool> _is_stop;
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
+    // std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
     std::string _sched_name;
     std::string _workload_group;
     std::shared_mutex _lock;
@@ -280,10 +280,10 @@ private:
 class TaskExecutorSimplifiedScanScheduler : public SimplifiedScanScheduler {
 public:
     TaskExecutorSimplifiedScanScheduler(std::string sched_name,
-                                        std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl,
+                                        // std::shared_ptr<CgroupCpuCtl> cgroup_cpu_ctl,
                                         std::string workload_group = "system")
             : _is_stop(false),
-              _cgroup_cpu_ctl(cgroup_cpu_ctl),
+              // _cgroup_cpu_ctl(cgroup_cpu_ctl),
               _sched_name(sched_name),
               _workload_group(workload_group) {}
 
@@ -306,7 +306,7 @@ public:
         thread_config.max_thread_num = max_thread_num;
         thread_config.min_thread_num = min_thread_num;
         thread_config.max_queue_size = queue_size;
-        thread_config.cgroup_cpu_ctl = _cgroup_cpu_ctl;
+        // thread_config.cgroup_cpu_ctl = _cgroup_cpu_ctl;
         _task_executor = TimeSharingTaskExecutor::create_shared(
                 thread_config, max_thread_num * 2, config::task_executor_min_concurrency_per_task,
                 config::task_executor_max_concurrency_per_task, std::make_shared<SystemTicker>(),
@@ -471,7 +471,7 @@ public:
 
 private:
     std::atomic<bool> _is_stop;
-    std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
+    // std::weak_ptr<CgroupCpuCtl> _cgroup_cpu_ctl;
     std::string _sched_name;
     std::string _workload_group;
     std::shared_mutex _lock;

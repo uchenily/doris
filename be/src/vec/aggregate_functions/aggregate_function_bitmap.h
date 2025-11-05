@@ -25,7 +25,6 @@
 #include <string>
 #include <vector>
 
-#include "agent/be_exec_version_manager.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "util/bitmap_value.h"
 #include "vec/aggregate_functions/aggregate_function.h"

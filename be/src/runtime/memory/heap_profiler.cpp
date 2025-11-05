@@ -20,7 +20,7 @@
 #ifdef USE_JEMALLOC
 #include "jemalloc/jemalloc.h"
 #endif
-#include "agent/utils.h"
+// #include "agent/utils.h"
 #include "common/config.h"
 #include "io/fs/local_file_system.h"
 
@@ -67,19 +67,20 @@ bool HeapProfiler::get_prof_dump(const std::string& profile_file_name) {
 }
 
 static std::string jeprof_profile_to_dot(const std::string& profile_file_name) {
-    AgentUtils util;
-    const static std::string jeprof_path = fmt::format("{}/bin/jeprof", std::getenv("DORIS_HOME"));
-    const static std::string binary_path =
-            fmt::format("{}/lib/doris_be", std::getenv("DORIS_HOME"));
-    // https://doris.apache.org/community/developer-guide/debug-tool/#3-jeprof-parses-heap-profile
-    std::string jeprof_cmd =
-            fmt::format("{} --dot {} {}", jeprof_path, binary_path, profile_file_name);
-    std::string msg;
-    bool rc = util.exec_cmd(jeprof_cmd, &msg);
-    if (!rc) {
-        LOG(WARNING) << "jeprof profile to dot failed: " << msg;
-    }
-    return msg;
+    // AgentUtils util;
+    // const static std::string jeprof_path = fmt::format("{}/bin/jeprof", std::getenv("DORIS_HOME"));
+    // const static std::string binary_path =
+    //         fmt::format("{}/lib/doris_be", std::getenv("DORIS_HOME"));
+    // // https://doris.apache.org/community/developer-guide/debug-tool/#3-jeprof-parses-heap-profile
+    // std::string jeprof_cmd =
+    //         fmt::format("{} --dot {} {}", jeprof_path, binary_path, profile_file_name);
+    // std::string msg;
+    // bool rc = util.exec_cmd(jeprof_cmd, &msg);
+    // if (!rc) {
+    //     LOG(WARNING) << "jeprof profile to dot failed: " << msg;
+    // }
+    // return msg;
+    return "";
 }
 
 void HeapProfiler::heap_profiler_start() {

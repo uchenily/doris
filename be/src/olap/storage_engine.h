@@ -37,7 +37,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include "agent/task_worker_pool.h"
+// #include "agent/task_worker_pool.h"
 #include "common/config.h"
 #include "common/status.h"
 #include "olap/calc_delete_bitmap_executor.h"
@@ -162,7 +162,7 @@ protected:
 
     // For task, tablet and disk report
     std::mutex _report_mtx;
-    std::vector<ReportWorker*> _report_listeners;
+    // std::vector<ReportWorker*> _report_listeners;
 
     std::unique_ptr<RowsetIdGenerator> _rowset_id_generator;
     std::unique_ptr<MemTableFlushExecutor> _memtable_flush_executor;
@@ -351,7 +351,7 @@ public:
 
     Status submit_clone_task(Tablet* tablet, int64_t version);
 
-    std::unordered_map<int64_t, std::unique_ptr<TaskWorkerPoolIf>>* workers;
+    // std::unordered_map<int64_t, std::unique_ptr<TaskWorkerPoolIf>>* workers;
 
     int64_t get_compaction_num_per_round() const { return _compaction_num_per_round; }
 

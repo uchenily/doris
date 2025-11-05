@@ -192,15 +192,15 @@ void WorkloadGroupMgr::delete_workload_group_by_ids(std::set<uint64_t> used_wg_i
     // this action may be failed until task file is cleared which means all thread are stopped.
     // So the first time to rmdir a cgroup path may failed.
     // Using cgdelete has no such issue.
-    {
-        if (!config::doris_cgroup_cpu_path.empty()) {
-            std::lock_guard<std::shared_mutex> write_lock(_clear_cgroup_lock);
-            Status ret = CgroupCpuCtl::delete_unused_cgroup_path(used_wg_id);
-            if (!ret.ok()) {
-                LOG(WARNING) << "[topic_publish_wg]" << ret.to_string();
-            }
-        }
-    }
+    // {
+    //     if (!config::doris_cgroup_cpu_path.empty()) {
+    //         std::lock_guard<std::shared_mutex> write_lock(_clear_cgroup_lock);
+    //         Status ret = CgroupCpuCtl::delete_unused_cgroup_path(used_wg_id);
+    //         if (!ret.ok()) {
+    //             LOG(WARNING) << "[topic_publish_wg]" << ret.to_string();
+    //         }
+    //     }
+    // }
     int64_t time_cost_ms = MonotonicMillis() - begin_time;
     if (deleted_task_groups.size() > 0) {
         LOG(INFO) << "[topic_publish_wg]finish clear unused workload group, time cost: "
