@@ -13,7 +13,8 @@ from thrift.protocol import TCompactProtocol
 from Data import ttypes as Data_ttypes
 
 # import v3
-import formated_params
+# from formated_params import pipeline_framgnet_params_list, query_id
+from formated_params2 import pipeline_framgnet_params_list, query_id
 
 
 def run():
@@ -44,7 +45,7 @@ def run():
         transport = TTransport.TMemoryBuffer()
         protocol = TCompactProtocol.TCompactProtocol(transport)
         # v3.pipeline_framgnet_params_list.write(protocol)
-        formated_params.pipeline_framgnet_params_list.write(protocol)
+        pipeline_framgnet_params_list.write(protocol)
         serialized_data = transport.getvalue()
 
         prepare_request = internal_service_pb2.PExecPlanFragmentRequest(
@@ -54,7 +55,7 @@ def run():
         )
 
         # query_id = types_pb2.PUniqueId(hi=v3.query_id.hi, lo=v3.query_id.lo)
-        query_id = types_pb2.PUniqueId(hi=formated_params.query_id.hi, lo=formated_params.query_id.lo)
+        pquery_id = types_pb2.PUniqueId(hi=query_id.hi, lo=query_id.lo)
         # fragment_instance_id0 = v3.fragment_instance_id0
         # fragment_instance_id = types_pb2.PUniqueId(
         #     hi=fragment_instance_id0.hi, lo=fragment_instance_id0.lo
@@ -79,7 +80,7 @@ def run():
             # if prepare_response and hasattr(prepare_response, 'query_id'):
 
             start_request = internal_service_pb2.PExecPlanFragmentStartRequest(
-                query_id=query_id
+                query_id=pquery_id
             )
 
             # Call the start method
@@ -99,7 +100,7 @@ def run():
             eos = False
             fetch_request = internal_service_pb2.PFetchDataRequest(
                 # finst_id=fragment_instance_id,
-                finst_id=query_id,
+                finst_id=pquery_id,
                 resp_in_attachment=False,
             )
             # import pdb; pdb.set_trace()
