@@ -28,6 +28,7 @@
 #include "common/status.h"
 #include "exec/schema_scanner/schema_scanner_helper.h"
 #include "pipeline/task_scheduler.h"
+#include "runtime/fragment_mgr.h"
 #include "runtime/memory/global_memory_arbitrator.h"
 #include "runtime/memory/mem_tracker_limiter.h"
 #include "runtime/workload_group/workload_group.h"

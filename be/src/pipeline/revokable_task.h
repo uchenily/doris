@@ -23,7 +23,6 @@
 #include "common/status.h"
 #include "pipeline/dependency.h"
 #include "pipeline/exec/operator.h"
-#include "pipeline/exec/spill_utils.h"
 #include "pipeline/pipeline.h"
 #include "pipeline/pipeline_task.h"
 #include "pipeline_task.h"
@@ -36,8 +35,8 @@ class PipelineFragmentContext;
 
 class RevokableTask : public PipelineTask {
 public:
-    RevokableTask(PipelineTaskSPtr task, std::shared_ptr<SpillContext> spill_context)
-            : _task(std::move(task)), _spill_context(std::move(spill_context)) {}
+    RevokableTask(PipelineTaskSPtr task)
+            : _task(std::move(task)) {}
 
     ~RevokableTask() override = default;
 
@@ -63,13 +62,15 @@ public:
 
     std::string task_name() const override { return _task->task_name(); }
 
-    Status execute(bool* done) override { return _task->do_revoke_memory(_spill_context); }
+    Status execute(bool* done) override { 
+        // return _task->do_revoke_memory(_spill_context); 
+        return Status::OK();
+    }
 
     bool is_blockable() const override { return true; }
 
 private:
     PipelineTaskSPtr _task;
-    std::shared_ptr<SpillContext> _spill_context;
 };
 
 } // namespace pipeline

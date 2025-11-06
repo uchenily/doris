@@ -47,7 +47,6 @@
 #include "util/runtime_profile.h"
 #include "util/uid_util.h"
 #include "vec/core/block.h"
-#include "vec/spill/spill_stream.h"
 
 namespace doris {
 class RuntimeState;
@@ -411,7 +410,7 @@ Status PipelineTask::execute(bool* done) {
             THROW_IF_ERROR(_sink->terminate(_state));
             _eos = true;
             *done = true;
-        } else if (_eos && !_spilling &&
+        } else if (_eos &&
                    (fragment_context->is_canceled() || !_is_pending_finish())) {
             *done = true;
         }
@@ -419,7 +418,7 @@ Status PipelineTask::execute(bool* done) {
     const auto query_id = _state->query_id();
     // If this task is already EOS and block is empty (which means we already output all blocks),
     // just return here.
-    if (_eos && !_spilling) {
+    if (_eos) {
         return Status::OK();
     }
     // If this task is blocked by a spilling request and waken up immediately, the spilling
@@ -427,7 +426,7 @@ Status PipelineTask::execute(bool* done) {
     if (!_block->empty()) {
         LOG(INFO) << "Query: " << print_id(query_id) << " has pending block, size: "
                   << PrettyPrinter::print_bytes(_block->allocated_bytes());
-        DCHECK(_spilling);
+        // DCHECK(_spilling);
     }
 
     SCOPED_TIMER(_task_profile->total_time_counter());
@@ -468,9 +467,7 @@ Status PipelineTask::execute(bool* done) {
         SCOPED_RAW_TIMER(&time_spent);
         Defer defer {[&]() {
             // If this run is pended by a spilling request, the block will be output in next run.
-            if (!_spilling) {
                 _block->clear_column_data(_root->row_desc().num_materialized_slots());
-            }
         }};
         // `_wake_up_early` must be after `_is_blocked()`
         if (_is_blocked() || _wake_up_early) {
@@ -504,7 +501,6 @@ Status PipelineTask::execute(bool* done) {
 
         // `_dry_run` means sink operator need no more data
         _eos = _dry_run || _eos;
-        _spilling = false;
         auto workload_group = _state->workload_group();
         // If last run is pended by a spilling request, `_block` is produced with some rows in last
         // run, so we will resume execution using the block.
@@ -612,39 +608,11 @@ Status PipelineTask::execute(bool* done) {
     return Status::OK();
 }
 
-Status PipelineTask::do_revoke_memory(const std::shared_ptr<SpillContext>& spill_context) {
-    auto fragment_context = _fragment_context.lock();
-    if (!fragment_context) {
-        return Status::InternalError("Fragment already finished! Query: {}", print_id(_query_id));
-    }
-
-    SCOPED_ATTACH_TASK(_state);
-    ThreadCpuStopWatch cpu_time_stop_watch;
-    cpu_time_stop_watch.start();
-    Defer running_defer {[&]() {
-        int64_t delta_cpu_time = cpu_time_stop_watch.elapsed_time();
-        _task_cpu_timer->update(delta_cpu_time);
-        fragment_context->get_query_ctx()->resource_ctx()->cpu_context()->update_cpu_cost_ms(
-                delta_cpu_time);
-
-        // If task is woke up early, we should terminate all operators, and this task could be closed immediately.
-        if (_wake_up_early) {
-            terminate();
-            THROW_IF_ERROR(_root->terminate(_state));
-            THROW_IF_ERROR(_sink->terminate(_state));
-            _eos = true;
-        }
-    }};
-
-    return _sink->revoke_memory(_state, spill_context);
-}
-
 bool PipelineTask::_try_to_reserve_memory(const size_t reserve_size, OperatorBase* op) {
     auto st = thread_context()->thread_mem_tracker_mgr->try_reserve(reserve_size);
     COUNTER_UPDATE(_memory_reserve_times, 1);
     auto sink_revocable_mem_size = _sink->revocable_mem_size(_state);
-    if (st.ok() && _state->enable_force_spill() && _sink->is_spillable() &&
-        sink_revocable_mem_size >= vectorized::SpillStream::MIN_SPILL_WRITE_BATCH_MEM) {
+    if (st.ok() && _state->enable_force_spill()) {
         st = Status(ErrorCode::QUERY_MEMORY_EXCEEDED, "Force Spill");
     }
     if (!st.ok()) {
@@ -664,22 +632,22 @@ bool PipelineTask::_try_to_reserve_memory(const size_t reserve_size, OperatorBas
         }
         LOG_EVERY_N(INFO, 100) << debug_msg;
         // If sink has enough revocable memory, trigger revoke memory
-        if (sink_revocable_mem_size >= vectorized::SpillStream::MIN_SPILL_WRITE_BATCH_MEM) {
-            LOG(INFO) << fmt::format(
-                    "Query: {} sink: {}, node id: {}, task id: "
-                    "{}, revocable mem size: {}",
-                    print_id(_query_id), _sink->get_name(), _sink->node_id(), _state->task_id(),
-                    PrettyPrinter::print_bytes(sink_revocable_mem_size));
-            ExecEnv::GetInstance()->workload_group_mgr()->add_paused_query(
-                    _state->get_query_ctx()->resource_ctx()->shared_from_this(), reserve_size, st);
-            _spilling = true;
-            return false;
-        } else {
+        // if (sink_revocable_mem_size >= vectorized::SpillStream::MIN_SPILL_WRITE_BATCH_MEM) {
+        //     LOG(INFO) << fmt::format(
+        //             "Query: {} sink: {}, node id: {}, task id: "
+        //             "{}, revocable mem size: {}",
+        //             print_id(_query_id), _sink->get_name(), _sink->node_id(), _state->task_id(),
+        //             PrettyPrinter::print_bytes(sink_revocable_mem_size));
+        //     ExecEnv::GetInstance()->workload_group_mgr()->add_paused_query(
+        //             _state->get_query_ctx()->resource_ctx()->shared_from_this(), reserve_size, st);
+        //     _spilling = true;
+        //     return false;
+        // } else {
             // If reserve failed, not add this query to paused list, because it is very small, will not
             // consume a lot of memory. But need set low memory mode to indicate that the system should
             // not use too much memory.
             _state->get_query_ctx()->set_low_memory_mode();
-        }
+        // }
     }
     return true;
 }
@@ -759,7 +727,7 @@ std::string PipelineTask::debug_string() {
                    "{}, _wake_up_early = {}, _wake_up_by = {}, time elapsed since last state "
                    "changing = {}s, spilling = {}, is running = {}]",
                    _index, _opened, _eos, _to_string(_exec_state), _dry_run, _wake_up_early.load(),
-                   _wake_by, _state_change_watcher.elapsed_time() / NANOS_PER_SEC, _spilling,
+                   _wake_by, _state_change_watcher.elapsed_time() / NANOS_PER_SEC, false,
                    is_running());
     std::unique_lock<std::mutex> lc(_dependency_lock);
     auto* cur_blocked_dep = _blocked_dep;
@@ -823,32 +791,11 @@ std::string PipelineTask::debug_string() {
 }
 
 size_t PipelineTask::get_revocable_size() const {
-    if (!_opened || is_finalized() || _running || (_eos && !_spilling)) {
+    if (!_opened || is_finalized() || _running || (_eos)) {
         return 0;
     }
 
     return _sink->revocable_mem_size(_state);
-}
-
-Status PipelineTask::revoke_memory(const std::shared_ptr<SpillContext>& spill_context) {
-    DCHECK(spill_context);
-    if (is_finalized()) {
-        spill_context->on_task_finished();
-        VLOG_DEBUG << "Query: " << print_id(_state->query_id()) << ", task: " << ((void*)this)
-                   << " finalized";
-        return Status::OK();
-    }
-
-    const auto revocable_size = _sink->revocable_mem_size(_state);
-    if (revocable_size >= vectorized::SpillStream::MIN_SPILL_WRITE_BATCH_MEM) {
-        auto revokable_task = std::make_shared<RevokableTask>(shared_from_this(), spill_context);
-        RETURN_IF_ERROR(_state->get_query_ctx()->get_pipe_exec_scheduler()->submit(revokable_task));
-    } else {
-        spill_context->on_task_finished();
-        LOG(INFO) << "Query: " << print_id(_state->query_id()) << ", task: " << ((void*)this)
-                  << " has not enough data to revoke: " << revocable_size;
-    }
-    return Status::OK();
 }
 
 Status PipelineTask::wake_up(Dependency* dep, std::unique_lock<std::mutex>& /* dep_lock */) {

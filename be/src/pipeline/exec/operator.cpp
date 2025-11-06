@@ -46,8 +46,6 @@
 #include "pipeline/exec/meta_scan_operator.h"
 #include "pipeline/exec/mock_operator.h"
 #include "pipeline/exec/mock_scan_operator.h"
-#include "pipeline/exec/multi_cast_data_stream_sink.h"
-#include "pipeline/exec/multi_cast_data_stream_source.h"
 #include "pipeline/exec/nested_loop_join_build_operator.h"
 #include "pipeline/exec/nested_loop_join_probe_operator.h"
 #include "pipeline/exec/olap_scan_operator.h"
@@ -55,10 +53,6 @@
 #include "pipeline/exec/olap_table_sink_v2_operator.h"
 #include "pipeline/exec/partition_sort_sink_operator.h"
 #include "pipeline/exec/partition_sort_source_operator.h"
-#include "pipeline/exec/partitioned_aggregation_sink_operator.h"
-#include "pipeline/exec/partitioned_aggregation_source_operator.h"
-#include "pipeline/exec/partitioned_hash_join_probe_operator.h"
-#include "pipeline/exec/partitioned_hash_join_sink_operator.h"
 #include "pipeline/exec/repeat_operator.h"
 #include "pipeline/exec/result_file_sink_operator.h"
 #include "pipeline/exec/result_sink_operator.h"
@@ -69,8 +63,6 @@
 #include "pipeline/exec/set_source_operator.h"
 #include "pipeline/exec/sort_sink_operator.h"
 #include "pipeline/exec/sort_source_operator.h"
-#include "pipeline/exec/spill_sort_sink_operator.h"
-#include "pipeline/exec/spill_sort_source_operator.h"
 #include "pipeline/exec/streaming_aggregation_operator.h"
 #include "pipeline/exec/union_sink_operator.h"
 #include "pipeline/exec/union_source_operator.h"
@@ -476,9 +468,9 @@ std::shared_ptr<BasicSharedState> DataSinkOperatorX<LocalStateType>::create_shar
     if constexpr (std::is_same_v<typename LocalStateType::SharedStateType,
                                  LocalExchangeSharedState>) {
         return nullptr;
-    } else if constexpr (std::is_same_v<typename LocalStateType::SharedStateType,
-                                        MultiCastSharedState>) {
-        throw Exception(Status::FatalError("should not reach here!"));
+    // } else if constexpr (std::is_same_v<typename LocalStateType::SharedStateType,
+    //                                     MultiCastSharedState>) {
+    //     throw Exception(Status::FatalError("should not reach here!"));
     } else {
         auto ss = LocalStateType::SharedStateType::create_shared();
         ss->id = operator_id();
@@ -781,20 +773,16 @@ DECLARE_OPERATOR(HiveTableSinkLocalState)
 DECLARE_OPERATOR(AnalyticSinkLocalState)
 DECLARE_OPERATOR(BlackholeSinkLocalState)
 DECLARE_OPERATOR(SortSinkLocalState)
-DECLARE_OPERATOR(SpillSortSinkLocalState)
 DECLARE_OPERATOR(LocalExchangeSinkLocalState)
 DECLARE_OPERATOR(AggSinkLocalState)
-DECLARE_OPERATOR(PartitionedAggSinkLocalState)
 DECLARE_OPERATOR(ExchangeSinkLocalState)
 DECLARE_OPERATOR(NestedLoopJoinBuildSinkLocalState)
 DECLARE_OPERATOR(UnionSinkLocalState)
-DECLARE_OPERATOR(MultiCastDataStreamSinkLocalState)
 DECLARE_OPERATOR(PartitionSortSinkLocalState)
 DECLARE_OPERATOR(SetProbeSinkLocalState<true>)
 DECLARE_OPERATOR(SetProbeSinkLocalState<false>)
 DECLARE_OPERATOR(SetSinkLocalState<true>)
 DECLARE_OPERATOR(SetSinkLocalState<false>)
-DECLARE_OPERATOR(PartitionedHashJoinSinkLocalState)
 DECLARE_OPERATOR(GroupCommitBlockSinkLocalState)
 DECLARE_OPERATOR(CacheSinkLocalState)
 
@@ -808,17 +796,14 @@ DECLARE_OPERATOR(JDBCScanLocalState)
 DECLARE_OPERATOR(FileScanLocalState)
 DECLARE_OPERATOR(AnalyticLocalState)
 DECLARE_OPERATOR(SortLocalState)
-DECLARE_OPERATOR(SpillSortLocalState)
 DECLARE_OPERATOR(LocalMergeSortLocalState)
 DECLARE_OPERATOR(AggLocalState)
-DECLARE_OPERATOR(PartitionedAggLocalState)
 DECLARE_OPERATOR(ExchangeLocalState)
 DECLARE_OPERATOR(RepeatLocalState)
 DECLARE_OPERATOR(NestedLoopJoinProbeLocalState)
 DECLARE_OPERATOR(AssertNumRowsLocalState)
 DECLARE_OPERATOR(EmptySetLocalState)
 DECLARE_OPERATOR(UnionSourceLocalState)
-DECLARE_OPERATOR(MultiCastDataStreamSourceLocalState)
 DECLARE_OPERATOR(PartitionSortSourceLocalState)
 DECLARE_OPERATOR(SetSourceLocalState<true>)
 DECLARE_OPERATOR(SetSourceLocalState<false>)
@@ -826,7 +811,6 @@ DECLARE_OPERATOR(DataGenLocalState)
 DECLARE_OPERATOR(SchemaScanLocalState)
 DECLARE_OPERATOR(MetaScanLocalState)
 DECLARE_OPERATOR(LocalExchangeSourceLocalState)
-DECLARE_OPERATOR(PartitionedHashJoinProbeLocalState)
 DECLARE_OPERATOR(CacheSourceLocalState)
 
 #ifdef BE_TEST
@@ -839,41 +823,32 @@ template class StreamingOperatorX<AssertNumRowsLocalState>;
 template class StreamingOperatorX<SelectLocalState>;
 
 template class StatefulOperatorX<HashJoinProbeLocalState>;
-template class StatefulOperatorX<PartitionedHashJoinProbeLocalState>;
 template class StatefulOperatorX<RepeatLocalState>;
 template class StatefulOperatorX<MaterializationLocalState>;
 template class StatefulOperatorX<StreamingAggLocalState>;
 template class StatefulOperatorX<DistinctStreamingAggLocalState>;
 template class StatefulOperatorX<NestedLoopJoinProbeLocalState>;
 template class PipelineXSinkLocalState<HashJoinSharedState>;
-template class PipelineXSinkLocalState<PartitionedHashJoinSharedState>;
 template class PipelineXSinkLocalState<SortSharedState>;
-template class PipelineXSinkLocalState<SpillSortSharedState>;
 template class PipelineXSinkLocalState<NestedLoopJoinSharedState>;
 template class PipelineXSinkLocalState<AnalyticSharedState>;
 template class PipelineXSinkLocalState<AggSharedState>;
-template class PipelineXSinkLocalState<PartitionedAggSharedState>;
 template class PipelineXSinkLocalState<FakeSharedState>;
 template class PipelineXSinkLocalState<UnionSharedState>;
 template class PipelineXSinkLocalState<PartitionSortNodeSharedState>;
-template class PipelineXSinkLocalState<MultiCastSharedState>;
 template class PipelineXSinkLocalState<SetSharedState>;
 template class PipelineXSinkLocalState<LocalExchangeSharedState>;
 template class PipelineXSinkLocalState<BasicSharedState>;
 template class PipelineXSinkLocalState<DataQueueSharedState>;
 
 template class PipelineXLocalState<HashJoinSharedState>;
-template class PipelineXLocalState<PartitionedHashJoinSharedState>;
 template class PipelineXLocalState<SortSharedState>;
-template class PipelineXLocalState<SpillSortSharedState>;
 template class PipelineXLocalState<NestedLoopJoinSharedState>;
 template class PipelineXLocalState<AnalyticSharedState>;
 template class PipelineXLocalState<AggSharedState>;
-template class PipelineXLocalState<PartitionedAggSharedState>;
 template class PipelineXLocalState<FakeSharedState>;
 template class PipelineXLocalState<UnionSharedState>;
 template class PipelineXLocalState<DataQueueSharedState>;
-template class PipelineXLocalState<MultiCastSharedState>;
 template class PipelineXLocalState<PartitionSortNodeSharedState>;
 template class PipelineXLocalState<SetSharedState>;
 template class PipelineXLocalState<LocalExchangeSharedState>;

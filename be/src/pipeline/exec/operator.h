@@ -33,7 +33,6 @@
 #include "common/status.h"
 #include "pipeline/dependency.h"
 #include "pipeline/exec/operator.h"
-#include "pipeline/exec/spill_utils.h"
 #include "pipeline/local_exchange/local_exchanger.h"
 #include "runtime/memory/mem_tracker.h"
 #include "runtime/query_context.h"
@@ -129,8 +128,7 @@ public:
 
     virtual size_t revocable_mem_size(RuntimeState* state) const { return 0; }
 
-    virtual Status revoke_memory(RuntimeState* state,
-                                 const std::shared_ptr<SpillContext>& spill_context) {
+    virtual Status revoke_memory(RuntimeState* state) {
         return Status::OK();
     }
 
@@ -323,152 +321,6 @@ protected:
     SharedStateArg* _shared_state = nullptr;
 };
 
-template <typename SharedStateArg>
-class PipelineXSpillLocalState : public PipelineXLocalState<SharedStateArg> {
-public:
-    using Base = PipelineXLocalState<SharedStateArg>;
-    PipelineXSpillLocalState(RuntimeState* state, OperatorXBase* parent)
-            : PipelineXLocalState<SharedStateArg>(state, parent) {}
-    ~PipelineXSpillLocalState() override = default;
-
-    Status init(RuntimeState* state, LocalStateInfo& info) override {
-        RETURN_IF_ERROR(PipelineXLocalState<SharedStateArg>::init(state, info));
-
-        init_spill_read_counters();
-
-        return Status::OK();
-    }
-
-    void init_spill_write_counters() {
-        _spill_write_timer = ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteTime", 1);
-
-        _spill_write_wait_in_queue_task_count = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteTaskWaitInQueueCount", TUnit::UNIT, 1);
-        _spill_writing_task_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                           "SpillWriteTaskCount", TUnit::UNIT, 1);
-        _spill_write_wait_in_queue_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteTaskWaitInQueueTime", 1);
-
-        _spill_write_file_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteFileTime", 1);
-
-        _spill_write_serialize_block_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteSerializeBlockTime", 1);
-        _spill_write_block_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                          "SpillWriteBlockCount", TUnit::UNIT, 1);
-        _spill_write_block_data_size = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteBlockBytes", TUnit::BYTES, 1);
-        _spill_write_file_total_size = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteFileBytes", TUnit::BYTES, 1);
-        _spill_write_rows_count =
-                ADD_COUNTER_WITH_LEVEL(Base::custom_profile(), "SpillWriteRows", TUnit::UNIT, 1);
-        _spill_file_total_count = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteFileTotalCount", TUnit::UNIT, 1);
-    }
-
-    void init_spill_read_counters() {
-        _spill_total_timer = ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillTotalTime", 1);
-
-        // Spill read counters
-        _spill_recover_time = ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillRecoverTime", 1);
-
-        _spill_read_wait_in_queue_task_count = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillReadTaskWaitInQueueCount", TUnit::UNIT, 1);
-        _spill_reading_task_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                           "SpillReadTaskCount", TUnit::UNIT, 1);
-        _spill_read_wait_in_queue_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillReadTaskWaitInQueueTime", 1);
-
-        _spill_read_file_time =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillReadFileTime", 1);
-        _spill_read_derialize_block_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillReadDerializeBlockTime", 1);
-
-        _spill_read_block_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                         "SpillReadBlockCount", TUnit::UNIT, 1);
-        _spill_read_block_data_size = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillReadBlockBytes", TUnit::BYTES, 1);
-        _spill_read_file_size = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(), "SpillReadFileBytes",
-                                                       TUnit::BYTES, 1);
-        _spill_read_rows_count =
-                ADD_COUNTER_WITH_LEVEL(Base::custom_profile(), "SpillReadRows", TUnit::UNIT, 1);
-        _spill_read_file_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                        "SpillReadFileCount", TUnit::UNIT, 1);
-
-        _spill_file_current_size = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteFileCurrentBytes", TUnit::BYTES, 1);
-        _spill_file_current_count = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteFileCurrentCount", TUnit::UNIT, 1);
-    }
-
-    // These two counters are shared to spill source operators as the initial value
-    // Initialize values of counters 'SpillWriteFileCurrentBytes' and 'SpillWriteFileCurrentCount'
-    // from spill sink operators' "SpillWriteFileTotalCount" and "SpillWriteFileBytes"
-    void copy_shared_spill_profile() {
-        if (_copy_shared_spill_profile) {
-            _copy_shared_spill_profile = false;
-            const auto* spill_shared_state = (const BasicSpillSharedState*)Base::_shared_state;
-            COUNTER_UPDATE(_spill_file_current_size,
-                           spill_shared_state->_spill_write_file_total_size->value());
-            COUNTER_UPDATE(_spill_file_current_count,
-                           spill_shared_state->_spill_file_total_count->value());
-            Base::_shared_state->update_spill_stream_profiles(Base::custom_profile());
-        }
-    }
-
-    // Total time of spill, including spill task scheduling time,
-    // serialize block time, write disk file time,
-    // and read disk file time, deserialize block time etc.
-    RuntimeProfile::Counter* _spill_total_timer = nullptr;
-
-    // Spill write counters
-    // Total time of spill write, including serialize block time, write disk file,
-    // and wait in queue time, etc.
-    RuntimeProfile::Counter* _spill_write_timer = nullptr;
-
-    RuntimeProfile::Counter* _spill_write_wait_in_queue_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_writing_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_write_wait_in_queue_timer = nullptr;
-
-    // Total time of writing file
-    RuntimeProfile::Counter* _spill_write_file_timer = nullptr;
-    RuntimeProfile::Counter* _spill_write_serialize_block_timer = nullptr;
-    // Original count of spilled Blocks
-    // One Big Block maybe split into multiple small Blocks when actually written to disk file.
-    RuntimeProfile::Counter* _spill_write_block_count = nullptr;
-    // Total bytes of spill data in Block format(in memory format)
-    RuntimeProfile::Counter* _spill_write_block_data_size = nullptr;
-    // Total bytes of spill data written to disk file(after serialized)
-    RuntimeProfile::Counter* _spill_write_file_total_size = nullptr;
-    RuntimeProfile::Counter* _spill_write_rows_count = nullptr;
-    RuntimeProfile::Counter* _spill_file_total_count = nullptr;
-    RuntimeProfile::Counter* _spill_file_current_count = nullptr;
-    // Spilled file total size
-    RuntimeProfile::Counter* _spill_file_total_size = nullptr;
-    // Current spilled file size
-    RuntimeProfile::Counter* _spill_file_current_size = nullptr;
-
-    // Spill read counters
-    // Total time of recovring spilled data, including read file time, deserialize time, etc.
-    RuntimeProfile::Counter* _spill_recover_time = nullptr;
-
-    RuntimeProfile::Counter* _spill_read_wait_in_queue_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_reading_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_read_wait_in_queue_timer = nullptr;
-
-    RuntimeProfile::Counter* _spill_read_file_time = nullptr;
-    RuntimeProfile::Counter* _spill_read_derialize_block_timer = nullptr;
-    RuntimeProfile::Counter* _spill_read_block_count = nullptr;
-    // Total bytes of read data in Block format(in memory format)
-    RuntimeProfile::Counter* _spill_read_block_data_size = nullptr;
-    // Total bytes of spill data read from disk file
-    RuntimeProfile::Counter* _spill_read_file_size = nullptr;
-    RuntimeProfile::Counter* _spill_read_rows_count = nullptr;
-    RuntimeProfile::Counter* _spill_read_file_count = nullptr;
-
-    bool _copy_shared_spill_profile = true;
-};
-
 class DataSinkOperatorXBase;
 
 class PipelineXSinkLocalStateBase {
@@ -638,8 +490,6 @@ public:
         return state->get_sink_local_state()->is_blockable();
     }
 
-    [[nodiscard]] bool is_spillable() const { return _spillable; }
-
     template <class TARGET>
     TARGET& cast() {
         DCHECK(dynamic_cast<TARGET*>(this))
@@ -700,7 +550,6 @@ protected:
     const int _operator_id;
     const int _node_id;
     int _nereids_id = -1;
-    bool _spillable = false;
     std::vector<int> _dests_id;
     std::string _name;
 };
@@ -727,104 +576,6 @@ public:
     [[nodiscard]] LocalState& get_local_state(RuntimeState* state) const {
         return state->get_sink_local_state()->template cast<LocalState>();
     }
-};
-
-template <typename SharedStateArg>
-class PipelineXSpillSinkLocalState : public PipelineXSinkLocalState<SharedStateArg> {
-public:
-    using Base = PipelineXSinkLocalState<SharedStateArg>;
-    PipelineXSpillSinkLocalState(DataSinkOperatorXBase* parent, RuntimeState* state)
-            : Base(parent, state) {}
-    ~PipelineXSpillSinkLocalState() override = default;
-
-    Status init(RuntimeState* state, LocalSinkStateInfo& info) override {
-        RETURN_IF_ERROR(Base::init(state, info));
-        init_spill_counters();
-        return Status::OK();
-    }
-
-    void init_spill_counters() {
-        _spill_total_timer = ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillTotalTime", 1);
-
-        _spill_write_timer = ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteTime", 1);
-
-        _spill_write_wait_in_queue_task_count = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteTaskWaitInQueueCount", TUnit::UNIT, 1);
-        _spill_writing_task_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                           "SpillWriteTaskCount", TUnit::UNIT, 1);
-        _spill_write_wait_in_queue_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteTaskWaitInQueueTime", 1);
-
-        _spill_write_file_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteFileTime", 1);
-
-        _spill_write_serialize_block_timer =
-                ADD_TIMER_WITH_LEVEL(Base::custom_profile(), "SpillWriteSerializeBlockTime", 1);
-        _spill_write_block_count = ADD_COUNTER_WITH_LEVEL(Base::custom_profile(),
-                                                          "SpillWriteBlockCount", TUnit::UNIT, 1);
-        _spill_write_block_data_size = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillWriteBlockBytes", TUnit::BYTES, 1);
-        _spill_write_rows_count =
-                ADD_COUNTER_WITH_LEVEL(Base::custom_profile(), "SpillWriteRows", TUnit::UNIT, 1);
-
-        _spill_max_rows_of_partition = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillMaxRowsOfPartition", TUnit::UNIT, 1);
-        _spill_min_rows_of_partition = ADD_COUNTER_WITH_LEVEL(
-                Base::custom_profile(), "SpillMinRowsOfPartition", TUnit::UNIT, 1);
-    }
-
-    std::vector<Dependency*> dependencies() const override {
-        auto dependencies = Base::dependencies();
-        return dependencies;
-    }
-
-    void update_max_min_rows_counter() {
-        int64_t max_rows = 0;
-        int64_t min_rows = std::numeric_limits<int64_t>::max();
-
-        for (auto rows : _rows_in_partitions) {
-            if (rows > max_rows) {
-                max_rows = rows;
-            }
-            if (rows < min_rows) {
-                min_rows = rows;
-            }
-        }
-
-        COUNTER_SET(_spill_max_rows_of_partition, max_rows);
-        COUNTER_SET(_spill_min_rows_of_partition, min_rows);
-    }
-
-    std::vector<int64_t> _rows_in_partitions;
-
-    // Total time of spill, including spill task scheduling time,
-    // serialize block time, write disk file time,
-    // and read disk file time, deserialize block time etc.
-    RuntimeProfile::Counter* _spill_total_timer = nullptr;
-
-    // Spill write counters
-    // Total time of spill write, including serialize block time, write disk file,
-    // and wait in queue time, etc.
-    RuntimeProfile::Counter* _spill_write_timer = nullptr;
-
-    RuntimeProfile::Counter* _spill_write_wait_in_queue_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_writing_task_count = nullptr;
-    RuntimeProfile::Counter* _spill_write_wait_in_queue_timer = nullptr;
-
-    // Total time of writing file
-    RuntimeProfile::Counter* _spill_write_file_timer = nullptr;
-    RuntimeProfile::Counter* _spill_write_serialize_block_timer = nullptr;
-    // Original count of spilled Blocks
-    // One Big Block maybe split into multiple small Blocks when actually written to disk file.
-    RuntimeProfile::Counter* _spill_write_block_count = nullptr;
-    // Total bytes of spill data in Block format(in memory format)
-    RuntimeProfile::Counter* _spill_write_block_data_size = nullptr;
-    RuntimeProfile::Counter* _spill_write_rows_count = nullptr;
-    // Spilled file total size
-    RuntimeProfile::Counter* _spill_file_total_size = nullptr;
-
-    RuntimeProfile::Counter* _spill_max_rows_of_partition = nullptr;
-    RuntimeProfile::Counter* _spill_min_rows_of_partition = nullptr;
 };
 
 class OperatorXBase : public OperatorBase {

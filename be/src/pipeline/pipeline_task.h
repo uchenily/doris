@@ -25,7 +25,6 @@
 #include "common/status.h"
 #include "pipeline/dependency.h"
 #include "pipeline/exec/operator.h"
-#include "pipeline/exec/spill_utils.h"
 #include "pipeline/pipeline.h"
 #include "util/runtime_profile.h"
 #include "util/stopwatch.hpp"
@@ -165,14 +164,11 @@ public:
         return fmt::format("task{}({})", _index, _pipeline->_name);
     }
 
-    [[nodiscard]] Status do_revoke_memory(const std::shared_ptr<SpillContext>& spill_context);
-
     // TODO: Maybe we do not need this safe code anymore
     void stop_if_finished();
 
     virtual PipelineId pipeline_id() const { return _pipeline->id(); }
     [[nodiscard]] size_t get_revocable_size() const;
-    [[nodiscard]] Status revoke_memory(const std::shared_ptr<SpillContext>& spill_context);
 
     Status blocked(Dependency* dependency, std::unique_lock<std::mutex>& /* dep_lock */) {
         DCHECK_EQ(_blocked_dep, nullptr) << "task: " << debug_string();
@@ -316,7 +312,6 @@ private:
     Status _state_transition(State new_state);
     std::atomic<State> _exec_state = State::INITED;
     MonotonicStopWatch _state_change_watcher;
-    std::atomic<bool> _spilling = false;
     const std::string _pipeline_name;
     int _wake_by = -1;
 };
