@@ -529,10 +529,10 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // begin to start services
-    doris::ThriftRpcHelper::setup(exec_env);
-    // 1. thrift server with be_port
-    std::unique_ptr<doris::ThriftServer> be_server;
+    // // begin to start services
+    // doris::ThriftRpcHelper::setup(exec_env);
+    // // 1. thrift server with be_port
+    // std::unique_ptr<doris::ThriftServer> be_server;
     std::shared_ptr<doris::BaseBackendService> service;
     std::function<void(Status&, std::string_view)> stop_work_if_error = [&](Status& status,
                                                                             std::string_view msg) {
@@ -543,22 +543,22 @@ int main(int argc, char** argv) {
         }
     };
 
-    // if (doris::config::is_cloud_mode()) {
-    //     service = std::make_shared<doris::CloudBackendService>(
-    //             exec_env->storage_engine().to_cloud(), exec_env);
-    //     EXIT_IF_ERROR(doris::CloudBackendService::create_service(
-    //             exec_env->storage_engine().to_cloud(), exec_env, doris::config::be_port, &be_server,
-    //             std::dynamic_pointer_cast<doris::CloudBackendService>(service)));
-    // } else {
-        service = std::make_shared<doris::BackendService>(exec_env->storage_engine().to_local(),
-                                                          exec_env);
-        EXIT_IF_ERROR(doris::BackendService::create_service(
-                exec_env->storage_engine().to_local(), exec_env, doris::config::be_port, &be_server,
-                std::dynamic_pointer_cast<doris::BackendService>(service)));
-    // }
-
-    status = be_server->start();
-    stop_work_if_error(status, "Doris BE server did not start correctly, exiting");
+    // // if (doris::config::is_cloud_mode()) {
+    // //     service = std::make_shared<doris::CloudBackendService>(
+    // //             exec_env->storage_engine().to_cloud(), exec_env);
+    // //     EXIT_IF_ERROR(doris::CloudBackendService::create_service(
+    // //             exec_env->storage_engine().to_cloud(), exec_env, doris::config::be_port, &be_server,
+    // //             std::dynamic_pointer_cast<doris::CloudBackendService>(service)));
+    // // } else {
+    //     service = std::make_shared<doris::BackendService>(exec_env->storage_engine().to_local(),
+    //                                                       exec_env);
+    //     EXIT_IF_ERROR(doris::BackendService::create_service(
+    //             exec_env->storage_engine().to_local(), exec_env, doris::config::be_port, &be_server,
+    //             std::dynamic_pointer_cast<doris::BackendService>(service)));
+    // // }
+    //
+    // status = be_server->start();
+    // stop_work_if_error(status, "Doris BE server did not start correctly, exiting");
 
     // 2. bprc service
     std::unique_ptr<doris::BRpcService> brpc_service =
@@ -630,9 +630,9 @@ int main(int argc, char** argv) {
     // http_service->stop();
     // http_service.reset(nullptr);
     // LOG(INFO) << "Http service stopped";
-    be_server->stop();
-    be_server.reset(nullptr);
-    LOG(INFO) << "Be server stopped";
+    // be_server->stop();
+    // be_server.reset(nullptr);
+    // LOG(INFO) << "Be server stopped";
     brpc_service.reset(nullptr);
     LOG(INFO) << "Brpc service stopped";
     service.reset();
