@@ -123,7 +123,7 @@
 #include "vec/exec/format/orc/vorc_reader.h"
 #include "vec/exec/format/parquet/vparquet_reader.h"
 #include "vec/exec/format/text/text_reader.h"
-#include "vec/functions/dictionary_factory.h"
+// #include "vec/functions/dictionary_factory.h"
 #include "vec/jsonb/serialize.h"
 #include "vec/runtime/vdata_stream_mgr.h"
 #include "vec/sink/vmysql_result_writer.h"
@@ -2319,7 +2319,8 @@ void PInternalService::delete_dictionary(google::protobuf::RpcController* contro
                                          PDeleteDictionaryResponse* response,
                                          google::protobuf::Closure* done) {
     brpc::ClosureGuard closure_guard(done);
-    Status st = ExecEnv::GetInstance()->dict_factory()->delete_dict(request->dictionary_id());
+    // Status st = ExecEnv::GetInstance()->dict_factory()->delete_dict(request->dictionary_id());
+    Status st;
     st.to_protobuf(response->mutable_status());
 }
 
@@ -2328,8 +2329,9 @@ void PInternalService::commit_refresh_dictionary(google::protobuf::RpcController
                                                  PCommitRefreshDictionaryResponse* response,
                                                  google::protobuf::Closure* done) {
     brpc::ClosureGuard closure_guard(done);
-    Status st = ExecEnv::GetInstance()->dict_factory()->commit_refresh_dict(
-            request->dictionary_id(), request->version_id());
+    // Status st = ExecEnv::GetInstance()->dict_factory()->commit_refresh_dict(
+    //         request->dictionary_id(), request->version_id());
+    Status st;
     st.to_protobuf(response->mutable_status());
 }
 
@@ -2338,8 +2340,9 @@ void PInternalService::abort_refresh_dictionary(google::protobuf::RpcController*
                                                 PAbortRefreshDictionaryResponse* response,
                                                 google::protobuf::Closure* done) {
     brpc::ClosureGuard closure_guard(done);
-    Status st = ExecEnv::GetInstance()->dict_factory()->abort_refresh_dict(request->dictionary_id(),
-                                                                           request->version_id());
+    // Status st = ExecEnv::GetInstance()->dict_factory()->abort_refresh_dict(request->dictionary_id(),
+    //                                                                        request->version_id());
+    Status st;
     st.to_protobuf(response->mutable_status());
 }
 

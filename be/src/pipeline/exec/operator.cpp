@@ -28,7 +28,6 @@
 #include "pipeline/exec/cache_sink_operator.h"
 #include "pipeline/exec/cache_source_operator.h"
 #include "pipeline/exec/datagen_operator.h"
-#include "pipeline/exec/dict_sink_operator.h"
 #include "pipeline/exec/distinct_streaming_aggregation_operator.h"
 #include "pipeline/exec/empty_set_operator.h"
 #include "pipeline/exec/exchange_sink_operator.h"
@@ -73,7 +72,6 @@
 #include "pipeline/exec/spill_sort_sink_operator.h"
 #include "pipeline/exec/spill_sort_source_operator.h"
 #include "pipeline/exec/streaming_aggregation_operator.h"
-#include "pipeline/exec/table_function_operator.h"
 #include "pipeline/exec/union_sink_operator.h"
 #include "pipeline/exec/union_source_operator.h"
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
@@ -799,7 +797,6 @@ DECLARE_OPERATOR(SetSinkLocalState<false>)
 DECLARE_OPERATOR(PartitionedHashJoinSinkLocalState)
 DECLARE_OPERATOR(GroupCommitBlockSinkLocalState)
 DECLARE_OPERATOR(CacheSinkLocalState)
-DECLARE_OPERATOR(DictSinkLocalState)
 
 #undef DECLARE_OPERATOR
 
@@ -815,7 +812,6 @@ DECLARE_OPERATOR(SpillSortLocalState)
 DECLARE_OPERATOR(LocalMergeSortLocalState)
 DECLARE_OPERATOR(AggLocalState)
 DECLARE_OPERATOR(PartitionedAggLocalState)
-DECLARE_OPERATOR(TableFunctionLocalState)
 DECLARE_OPERATOR(ExchangeLocalState)
 DECLARE_OPERATOR(RepeatLocalState)
 DECLARE_OPERATOR(NestedLoopJoinProbeLocalState)
@@ -849,8 +845,6 @@ template class StatefulOperatorX<MaterializationLocalState>;
 template class StatefulOperatorX<StreamingAggLocalState>;
 template class StatefulOperatorX<DistinctStreamingAggLocalState>;
 template class StatefulOperatorX<NestedLoopJoinProbeLocalState>;
-template class StatefulOperatorX<TableFunctionLocalState>;
-
 template class PipelineXSinkLocalState<HashJoinSharedState>;
 template class PipelineXSinkLocalState<PartitionedHashJoinSharedState>;
 template class PipelineXSinkLocalState<SortSharedState>;

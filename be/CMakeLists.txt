@@ -150,13 +150,13 @@ set(CMAKE_SKIP_RPATH TRUE)
 set(Boost_USE_STATIC_LIBS ON)
 set(Boost_USE_STATIC_RUNTIME ON)
 
-# Compile generated source if necessary
-message(STATUS "build gensrc if necessary")
-execute_process(COMMAND make -C ${BASE_DIR}/../gensrc/
-                RESULT_VARIABLE MAKE_GENSRC_RESULT)
-if(NOT ${MAKE_GENSRC_RESULT} EQUAL 0 AND NOT APPLE)
-    message(FATAL_ERROR "Failed to build ${BASE_DIR}/../gensrc/")
-endif()
+# # Compile generated source if necessary
+# message(STATUS "build gensrc if necessary")
+# execute_process(COMMAND make -C ${BASE_DIR}/../gensrc/
+#                 RESULT_VARIABLE MAKE_GENSRC_RESULT)
+# if(NOT ${MAKE_GENSRC_RESULT} EQUAL 0 AND NOT APPLE)
+#     message(FATAL_ERROR "Failed to build ${BASE_DIR}/../gensrc/")
+# endif()
 
 # Set Boost
 set(Boost_DEBUG FALSE)

@@ -30,7 +30,7 @@
 #include "common/config.h"
 #include "common/object_pool.h"
 #include "vec/aggregate_functions/aggregate_function_java_udaf.h"
-#include "vec/aggregate_functions/aggregate_function_rpc.h"
+// #include "vec/aggregate_functions/aggregate_function_rpc.h"
 #include "vec/aggregate_functions/aggregate_function_simple_factory.h"
 #include "vec/aggregate_functions/aggregate_function_sort.h"
 #include "vec/aggregate_functions/aggregate_function_state_merge.h"
@@ -160,8 +160,8 @@ Status AggFnEvaluator::prepare(RuntimeState* state, const RowDescriptor& desc,
                     "Java UDAF is not enabled, you can change be config enable_java_support to "
                     "true and restart be.");
         }
-    } else if (_fn.binary_type == TFunctionBinaryType::RPC) {
-        _function = AggregateRpcUdaf::create(_fn, argument_types, _data_type);
+    // } else if (_fn.binary_type == TFunctionBinaryType::RPC) {
+    //     _function = AggregateRpcUdaf::create(_fn, argument_types, _data_type);
     } else if (_fn.binary_type == TFunctionBinaryType::AGG_STATE) {
         if (argument_types.size() != 1) {
             return Status::InternalError("Agg state Function must input 1 argument but get {}",

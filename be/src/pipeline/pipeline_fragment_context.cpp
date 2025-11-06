@@ -50,7 +50,6 @@
 #include "pipeline/exec/cache_sink_operator.h"
 #include "pipeline/exec/cache_source_operator.h"
 #include "pipeline/exec/datagen_operator.h"
-#include "pipeline/exec/dict_sink_operator.h"
 #include "pipeline/exec/distinct_streaming_aggregation_operator.h"
 #include "pipeline/exec/empty_set_operator.h"
 #include "pipeline/exec/exchange_sink_operator.h"
@@ -93,7 +92,7 @@
 #include "pipeline/exec/spill_sort_sink_operator.h"
 #include "pipeline/exec/spill_sort_source_operator.h"
 #include "pipeline/exec/streaming_aggregation_operator.h"
-#include "pipeline/exec/table_function_operator.h"
+// #include "pipeline/exec/table_function_operator.h"
 #include "pipeline/exec/union_sink_operator.h"
 #include "pipeline/exec/union_source_operator.h"
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
@@ -1019,15 +1018,15 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
                                                       output_exprs, thrift_sink.result_sink);
         break;
     }
-    case TDataSinkType::DICTIONARY_SINK: {
-        if (!thrift_sink.__isset.dictionary_sink) {
-            return Status::InternalError("Missing dict sink.");
-        }
-
-        _sink = std::make_shared<DictSinkOperatorX>(next_sink_operator_id(), row_desc, output_exprs,
-                                                    thrift_sink.dictionary_sink);
-        break;
-    }
+    // case TDataSinkType::DICTIONARY_SINK: {
+    //     if (!thrift_sink.__isset.dictionary_sink) {
+    //         return Status::InternalError("Missing dict sink.");
+    //     }
+    //
+    //     _sink = std::make_shared<DictSinkOperatorX>(next_sink_operator_id(), row_desc, output_exprs,
+    //                                                 thrift_sink.dictionary_sink);
+    //     break;
+    // }
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
     case TDataSinkType::OLAP_TABLE_SINK: {
         if (state->query_options().enable_memtable_on_sink_node &&
@@ -1591,11 +1590,11 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
         break;
     }
-    case TPlanNodeType::TABLE_FUNCTION_NODE: {
-        op = std::make_shared<TableFunctionOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        break;
-    }
+    // case TPlanNodeType::TABLE_FUNCTION_NODE: {
+    //     op = std::make_shared<TableFunctionOperatorX>(pool, tnode, next_operator_id(), descs);
+    //     RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
+    //     break;
+    // }
     case TPlanNodeType::ASSERT_NUM_ROWS_NODE: {
         op = std::make_shared<AssertNumRowsOperatorX>(pool, tnode, next_operator_id(), descs);
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));

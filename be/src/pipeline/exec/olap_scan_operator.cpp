@@ -44,7 +44,6 @@
 #include "vec/exprs/vexpr.h"
 #include "vec/exprs/vexpr_context.h"
 #include "vec/exprs/vslot_ref.h"
-#include "vec/functions/in.h"
 
 namespace doris::pipeline {
 #include "common/compile_check_begin.h"

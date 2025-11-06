@@ -51,9 +51,8 @@
 #include "vec/exprs/virtual_slot_ref.h"
 #include "vec/exprs/vliteral.h"
 #include "vec/functions/function_agg_state.h"
-#include "vec/functions/function_fake.h"
 #include "vec/functions/function_java_udf.h"
-#include "vec/functions/function_rpc.h"
+// #include "vec/functions/function_rpc.h"
 #include "vec/functions/simple_function_factory.h"
 #include "vec/utils/util.hpp"
 
@@ -89,18 +88,18 @@ Status VectorizedFnCall::prepare(RuntimeState* state, const RowDescriptor& desc,
 
     _expr_name = fmt::format("VectorizedFnCall[{}](arguments={},return={})", _fn.name.function_name,
                              get_child_names(), _data_type->get_name());
-    if (_fn.binary_type == TFunctionBinaryType::RPC) {
-        _function = FunctionRPC::create(_fn, argument_template, _data_type);
-    } else if (_fn.binary_type == TFunctionBinaryType::JAVA_UDF) {
+    // if (_fn.binary_type == TFunctionBinaryType::RPC) {
+    //     _function = FunctionRPC::create(_fn, argument_template, _data_type);
+    if (_fn.binary_type == TFunctionBinaryType::JAVA_UDF) {
         if (config::enable_java_support) {
-            if (_fn.is_udtf_function) {
-                // fake function. it's no use and can't execute.
-                auto builder =
-                        std::make_shared<DefaultFunctionBuilder>(FunctionFake<UDTFImpl>::create());
-                _function = builder->build(argument_template, std::make_shared<DataTypeUInt8>());
-            } else {
+            // if (_fn.is_udtf_function) {
+            //     // fake function. it's no use and can't execute.
+            //     auto builder =
+            //             std::make_shared<DefaultFunctionBuilder>(FunctionFake<UDTFImpl>::create());
+            //     _function = builder->build(argument_template, std::make_shared<DataTypeUInt8>());
+            // } else {
                 _function = JavaFunctionCall::create(_fn, argument_template, _data_type);
-            }
+            // }
         } else {
             return Status::InternalError(
                     "Java UDF is not enabled, you can change be config enable_java_support to true "

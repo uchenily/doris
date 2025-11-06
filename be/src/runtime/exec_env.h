@@ -53,7 +53,7 @@ class VDataStreamMgr;
 class ScannerScheduler;
 class SpillStreamManager;
 class DeltaWriterV2Pool;
-class DictionaryFactory;
+// class DictionaryFactory;
 } // namespace vectorized
 namespace pipeline {
 class TaskScheduler;
@@ -376,7 +376,7 @@ public:
         return _runtime_filter_timer_queue;
     }
 
-    vectorized::DictionaryFactory* dict_factory() { return _dict_factory; }
+    // vectorized::DictionaryFactory* dict_factory() { return _dict_factory; }
 
     pipeline::PipelineTracerContext* pipeline_tracer_context() {
         return _pipeline_tracer_ctx.get();
@@ -527,7 +527,7 @@ private:
     DeleteBitmapAggCache* _delete_bitmap_agg_cache {nullptr};
 
     pipeline::RuntimeFilterTimerQueue* _runtime_filter_timer_queue = nullptr;
-    vectorized::DictionaryFactory* _dict_factory = nullptr;
+    // vectorized::DictionaryFactory* _dict_factory = nullptr;
 
     WorkloadSchedPolicyMgr* _workload_sched_mgr = nullptr;
     IndexPolicyMgr* _index_policy_mgr = nullptr;
