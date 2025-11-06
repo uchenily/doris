@@ -14,7 +14,8 @@ from Data import ttypes as Data_ttypes
 
 # import v3
 # from formated_params import pipeline_framgnet_params_list, query_id
-from formated_params2 import pipeline_framgnet_params_list, query_id
+# from formated_params2 import pipeline_framgnet_params_list, query_id
+from formated_params3 import pipeline_framgnet_params_list, query_id
 
 
 def run():
