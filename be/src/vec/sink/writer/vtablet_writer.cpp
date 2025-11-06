@@ -44,7 +44,6 @@
 #include <utility>
 #include <vector>
 
-#include "cloud/config.h"
 #include "common/config.h"
 #include "cpp/sync_point.h"
 #include "util/runtime_profile.h"
@@ -1491,10 +1490,10 @@ Status VTabletWriter::_init(RuntimeState* state, RuntimeProfile* profile) {
         }
     }
 
-    if (config::is_cloud_mode() &&
-        (!table_sink.__isset.txn_timeout_s || table_sink.txn_timeout_s <= 0)) {
-        return Status::InternalError("The txn_timeout_s of TDataSink is invalid");
-    }
+    // if (config::is_cloud_mode() &&
+    //     (!table_sink.__isset.txn_timeout_s || table_sink.txn_timeout_s <= 0)) {
+    //     return Status::InternalError("The txn_timeout_s of TDataSink is invalid");
+    // }
     _txn_expiration = ::time(nullptr) + table_sink.txn_timeout_s;
 
     if (table_sink.__isset.load_channel_timeout_s) {

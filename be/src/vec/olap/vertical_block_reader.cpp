@@ -24,7 +24,6 @@
 #include <boost/iterator/iterator_facade.hpp>
 #include <ostream>
 
-#include "cloud/config.h"
 #include "olap/compaction.h"
 #include "olap/iterators.h"
 #include "olap/olap_common.h"
@@ -55,11 +54,11 @@ VerticalBlockReader::~VerticalBlockReader() {
 
 Status VerticalBlockReader::next_block_with_aggregation(Block* block, bool* eof) {
     auto res = (this->*_next_block_func)(block, eof);
-    if (!config::is_cloud_mode()) {
+    // if (!config::is_cloud_mode()) {
         if (!res.ok()) [[unlikely]] {
             static_cast<Tablet*>(_tablet.get())->report_error(res);
         }
-    }
+    // }
     return res;
 }
 
@@ -227,9 +226,9 @@ Status VerticalBlockReader::init(const ReaderParams& read_params,
 
     auto status = _init_collect_iter(read_params, sample_info);
     if (!status.ok()) [[unlikely]] {
-        if (!config::is_cloud_mode()) {
+        // if (!config::is_cloud_mode()) {
             static_cast<Tablet*>(_tablet.get())->report_error(status);
-        }
+        // }
         return status;
     }
 

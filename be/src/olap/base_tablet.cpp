@@ -27,8 +27,6 @@
 #include <random>
 #include <shared_mutex>
 
-#include "cloud/cloud_tablet.h"
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/logging.h"
 #include "common/status.h"
@@ -1281,10 +1279,10 @@ Status BaseTablet::commit_phase_update_delete_bitmap(
     {
         // to prevent seeing intermediate state of a tablet
         std::unique_lock<bthread::Mutex> sync_lock;
-        if (config::is_cloud_mode()) {
-            sync_lock = std::unique_lock<bthread::Mutex>(
-                    std::static_pointer_cast<CloudTablet>(tablet)->get_sync_meta_lock());
-        }
+        // if (config::is_cloud_mode()) {
+        //     sync_lock = std::unique_lock<bthread::Mutex>(
+        //             std::static_pointer_cast<CloudTablet>(tablet)->get_sync_meta_lock());
+        // }
         std::shared_lock meta_rlock(tablet->_meta_lock);
         if (tablet->tablet_state() == TABLET_NOTREADY) {
             // tablet is under alter process. The delete bitmap will be calculated after conversion.

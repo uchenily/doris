@@ -29,8 +29,6 @@
 #include <memory>
 #include <string>
 
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/object_pool.h"

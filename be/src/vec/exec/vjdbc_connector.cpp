@@ -27,13 +27,11 @@
 #include <utility>
 
 #include "absl/strings/substitute.h"
-#include "cloud/config.h"
 #include "common/logging.h"
 #include "common/status.h"
 #include "exec/table_connector.h"
 #include "jni.h"
 #include "runtime/descriptors.h"
-#include "runtime/plugin/cloud_plugin_downloader.h"
 #include "runtime/runtime_state.h"
 #include "runtime/types.h"
 #include "runtime/user_function_cache.h"
@@ -669,19 +667,19 @@ Status JdbcConnector::_check_and_return_default_driver_url(const std::string& ur
             // File exists in new default directory
             *result_url = "file://" + target_path;
             return Status::OK();
-        } else if (config::is_cloud_mode()) {
-            // Cloud mode: try to download from cloud to new default directory
-            std::string downloaded_path;
-            Status status = CloudPluginDownloader::download_from_cloud(
-                    CloudPluginDownloader::PluginType::JDBC_DRIVERS, url, target_path,
-                    &downloaded_path);
-            if (status.ok() && !downloaded_path.empty()) {
-                *result_url = "file://" + downloaded_path;
-                return Status::OK();
-            }
-            // Download failed, log warning but continue to fallback
-            LOG(WARNING) << "Failed to download JDBC driver from cloud: " << status.to_string()
-                         << ", fallback to old directory";
+        // } else if (config::is_cloud_mode()) {
+        //     // Cloud mode: try to download from cloud to new default directory
+        //     std::string downloaded_path;
+        //     Status status = CloudPluginDownloader::download_from_cloud(
+        //             CloudPluginDownloader::PluginType::JDBC_DRIVERS, url, target_path,
+        //             &downloaded_path);
+        //     if (status.ok() && !downloaded_path.empty()) {
+        //         *result_url = "file://" + downloaded_path;
+        //         return Status::OK();
+        //     }
+        //     // Download failed, log warning but continue to fallback
+        //     LOG(WARNING) << "Failed to download JDBC driver from cloud: " << status.to_string()
+        //                  << ", fallback to old directory";
         }
 
         // Fallback to old default directory for compatibility

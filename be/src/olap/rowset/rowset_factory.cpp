@@ -22,8 +22,6 @@
 #include <memory>
 
 #include "beta_rowset.h"
-#include "cloud/cloud_rowset_writer.h"
-#include "cloud/config.h"
 #include "io/fs/file_writer.h" // IWYU pragma: keep
 #include "olap/rowset/beta_rowset_writer.h"
 #include "olap/rowset/rowset_writer.h"
@@ -66,21 +64,6 @@ Result<std::unique_ptr<RowsetWriter>> RowsetFactory::create_rowset_writer(
     }
 
     return ResultError(Status::Error<ROWSET_TYPE_NOT_FOUND>("invalid rowset_type"));
-}
-
-Result<std::unique_ptr<RowsetWriter>> RowsetFactory::create_rowset_writer(
-        CloudStorageEngine& engine, const RowsetWriterContext& context, bool is_vertical) {
-    DCHECK_EQ(context.rowset_type, BETA_ROWSET);
-    // TODO(plat1ko): cloud vertical rowset writer
-    std::unique_ptr<RowsetWriter> writer;
-    if (is_vertical) {
-        writer = std::make_unique<VerticalBetaRowsetWriter<CloudRowsetWriter>>();
-    } else {
-        writer = std::make_unique<CloudRowsetWriter>();
-    }
-
-    RETURN_IF_ERROR_RESULT(writer->init(context));
-    return writer;
 }
 
 } // namespace doris

@@ -34,9 +34,6 @@
 #include <set>
 #include <utility>
 
-#include "cloud/cloud_meta_mgr.h"
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/config.h"
 #include "common/config.h"
 #include "io/fs/file_writer.h"
 #include "io/fs/local_file_system.h"
@@ -847,7 +844,8 @@ void TabletMeta::to_meta_pb(TabletMetaPB* tablet_meta_pb, bool cloud_get_rowset_
     }
 
     // RowsetMetaPB is separated from TabletMetaPB
-    if (!config::is_cloud_mode() || cloud_get_rowset_meta) {
+    // if (!config::is_cloud_mode() || cloud_get_rowset_meta) {
+    if (cloud_get_rowset_meta) {
         for (const auto& [_, rs] : _rs_metas) {
             rs->to_rowset_pb(tablet_meta_pb->add_rs_metas());
         }

@@ -21,7 +21,6 @@
 
 #include <string>
 
-#include "cloud/cloud_tablet.h"
 #include "common/status.h"
 #include "olap/tablet_reader.h"
 #include "operator.h"
@@ -52,12 +51,7 @@ public:
                            std::to_string(_parent->node_id()));
     }
     std::vector<Dependency*> execution_dependencies() override {
-        if (!_cloud_tablet_dependency) {
-            return Base::execution_dependencies();
-        }
-        std::vector<Dependency*> res = Base::execution_dependencies();
-        res.push_back(_cloud_tablet_dependency.get());
-        return res;
+        return Base::execution_dependencies();
     }
 
     Status open(RuntimeState* state) override;
@@ -65,7 +59,6 @@ public:
 private:
     friend class vectorized::OlapScanner;
 
-    Status _sync_cloud_tablets(RuntimeState* state);
     void set_scan_ranges(RuntimeState* state,
                          const std::vector<TScanRangeParams>& scan_ranges) override;
     Status _init_profile() override;
@@ -100,12 +93,9 @@ private:
     Status _build_key_ranges_and_filters();
 
     std::vector<std::unique_ptr<TPaloScanRange>> _scan_ranges;
-    std::vector<SyncRowsetStats> _sync_statistics;
-    MonotonicStopWatch _sync_cloud_tablets_watcher;
-    std::shared_ptr<Dependency> _cloud_tablet_dependency;
+    // std::vector<SyncRowsetStats> _sync_statistics;
     std::atomic<size_t> _pending_tablets_num = 0;
     bool _prepared = false;
-    std::future<Status> _cloud_tablet_future;
     std::atomic_bool _sync_tablet = false;
     std::vector<std::unique_ptr<doris::OlapScanRange>> _cond_ranges;
     OlapScanKeys _scan_keys;

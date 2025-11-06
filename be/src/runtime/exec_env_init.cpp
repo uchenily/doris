@@ -32,12 +32,6 @@
 #include <string>
 #include <vector>
 
-#include "cloud/cloud_cluster_info.h"
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_stream_load_executor.h"
-#include "cloud/cloud_tablet_hotspot.h"
-#include "cloud/cloud_warm_up_manager.h"
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/config.h"
 #include "common/kerberos/kerberos_ticket_mgr.h"
@@ -297,11 +291,11 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     _fragment_mgr = new FragmentMgr(this);
     _result_cache = new ResultCache(config::query_cache_max_size_mb,
                                     config::query_cache_elasticity_size_mb);
-    if (config::is_cloud_mode()) {
-        _cluster_info = new CloudClusterInfo();
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     _cluster_info = new CloudClusterInfo();
+    // } else {
         _cluster_info = new ClusterInfo();
-    }
+    // }
 
     _load_path_mgr = new LoadPathMgr(this);
     _bfd_parser = BfdParser::create();
@@ -317,11 +311,11 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
             new BrpcClientCache<PBackendService_Stub>("baidu_std", "single", "streaming");
     _function_client_cache =
             new BrpcClientCache<PFunctionService_Stub>(config::function_service_protocol);
-    if (config::is_cloud_mode()) {
-        _stream_load_executor = CloudStreamLoadExecutor::create_unique(this);
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     _stream_load_executor = CloudStreamLoadExecutor::create_unique(this);
+    // } else {
         _stream_load_executor = StreamLoadExecutor::create_unique(this);
-    }
+    // }
     _routine_load_task_executor = new RoutineLoadTaskExecutor(this);
     RETURN_IF_ERROR(_routine_load_task_executor->init(MemInfo::mem_limit()));
     _small_file_mgr = new SmallFileMgr(this, config::small_file_dir);
@@ -370,14 +364,14 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     options.backend_uid = doris::UniqueId::gen_uid();
     // Check if the startup mode has been modified
     RETURN_IF_ERROR(_check_deploy_mode());
-    if (config::is_cloud_mode()) {
-        std::cout << "start BE in cloud mode, cloud_unique_id: " << config::cloud_unique_id
-                  << ", meta_service_endpoint: " << config::meta_service_endpoint << std::endl;
-        _storage_engine = std::make_unique<CloudStorageEngine>(options);
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     std::cout << "start BE in cloud mode, cloud_unique_id: " << config::cloud_unique_id
+    //               << ", meta_service_endpoint: " << config::meta_service_endpoint << std::endl;
+    //     _storage_engine = std::make_unique<CloudStorageEngine>(options);
+    // } else {
         std::cout << "start BE in local mode" << std::endl;
         _storage_engine = std::make_unique<StorageEngine>(options);
-    }
+    // }
     auto st = _storage_engine->open();
     if (!st.ok()) {
         LOG(ERROR) << "Fail to open StorageEngine, res=" << st;
@@ -425,12 +419,12 @@ void ExecEnv::_init_runtime_filter_timer_queue() {
 void ExecEnv::init_file_cache_factory(std::vector<doris::CachePath>& cache_paths) {
     // Load file cache before starting up daemon threads to make sure StorageEngine is read.
     if (!config::enable_file_cache) {
-        if (config::is_cloud_mode()) {
-            LOG(FATAL) << "Cloud mode requires to enable file cache, plz set "
-                          "config::enable_file_cache "
-                          "= true";
-            exit(-1);
-        }
+        // if (config::is_cloud_mode()) {
+        //     LOG(FATAL) << "Cloud mode requires to enable file cache, plz set "
+        //                   "config::enable_file_cache "
+        //                   "= true";
+        //     exit(-1);
+        // }
         return;
     }
     // if (config::file_cache_each_block_size > config::s3_write_buffer_size ||
@@ -545,12 +539,12 @@ Status ExecEnv::init_mem_env() {
     }
 
     int64_t segment_cache_capacity = 0;
-    if (config::is_cloud_mode()) {
-        // when in cloud mode, segment cache hold no system FD
-        // thus the FD num limit makes no sense
-        // cloud mode use FDCache to control FD
-        segment_cache_capacity = UINT32_MAX;
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     // when in cloud mode, segment cache hold no system FD
+    //     // thus the FD num limit makes no sense
+    //     // cloud mode use FDCache to control FD
+    //     segment_cache_capacity = UINT32_MAX;
+    // } else {
         // SegmentLoader caches segments in rowset granularity. So the size of
         // opened files will greater than segment_cache_capacity.
         segment_cache_capacity = config::segment_cache_capacity;
@@ -558,7 +552,7 @@ Status ExecEnv::init_mem_env() {
         if (segment_cache_capacity < 0 || segment_cache_capacity > segment_cache_fd_limit) {
             segment_cache_capacity = segment_cache_fd_limit;
         }
-    }
+    // }
 
     int64_t segment_cache_mem_limit =
             MemInfo::mem_limit() / 100 * config::segment_cache_memory_percentage;
@@ -676,7 +670,8 @@ void ExecEnv::init_mem_tracker() {
 Status ExecEnv::_check_deploy_mode() {
     for (auto _path : _store_paths) {
         auto deploy_mode_path = fmt::format("{}/{}", _path.path, DEPLOY_MODE_PREFIX);
-        std::string expected_mode = doris::config::is_cloud_mode() ? "cloud" : "local";
+        // std::string expected_mode = doris::config::is_cloud_mode() ? "cloud" : "local";
+        std::string expected_mode = "local";
         bool exists = false;
         RETURN_IF_ERROR(io::global_local_filesystem()->exists(deploy_mode_path, &exists));
         if (exists) {

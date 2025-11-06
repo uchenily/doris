@@ -24,7 +24,6 @@
 #include <cstddef>
 #include <ostream>
 
-#include "cloud/config.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "common/config.h"
 #include "common/logging.h"
@@ -165,17 +164,17 @@ Status RowSourcesBuffer::_create_buffer_file() {
         return Status::OK();
     }
     std::stringstream file_path_ss;
-    if (config::is_cloud_mode()) {
-        std::vector<std::string> paths = io::FileCacheFactory::instance()->get_base_paths();
-        if (paths.empty()) {
-            return Status::InternalError("fail to create write buffer due to missing cache path");
-        }
-        std::size_t hash_val = std::hash<int64_t> {}(_tablet_id);
-        int64_t idx = hash_val % paths.size();
-        file_path_ss << paths[idx] << "/compaction_row_source_" << _tablet_id;
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     std::vector<std::string> paths = io::FileCacheFactory::instance()->get_base_paths();
+    //     if (paths.empty()) {
+    //         return Status::InternalError("fail to create write buffer due to missing cache path");
+    //     }
+    //     std::size_t hash_val = std::hash<int64_t> {}(_tablet_id);
+    //     int64_t idx = hash_val % paths.size();
+    //     file_path_ss << paths[idx] << "/compaction_row_source_" << _tablet_id;
+    // } else {
         file_path_ss << _tablet_path << "/compaction_row_source_" << _tablet_id;
-    }
+    // }
 
     if (_reader_type == ReaderType::READER_BASE_COMPACTION) {
         file_path_ss << "_base";

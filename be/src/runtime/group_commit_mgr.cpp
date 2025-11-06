@@ -23,7 +23,6 @@
 #include <chrono>
 
 #include "client_cache.h"
-#include "cloud/config.h"
 #include "common/compiler_util.h"
 #include "common/config.h"
 #include "common/status.h"
@@ -464,7 +463,8 @@ Status GroupCommitTable::_finish_group_commit_load(int64_t db_id, int64_t table_
         TLoadTxnCommitResult result;
         TNetworkAddress master_addr = _exec_env->cluster_info()->master_fe_addr;
         int retry_times = 0;
-        while (retry_times < config::mow_stream_load_commit_retry_times) {
+        // while (retry_times < config::mow_stream_load_commit_retry_times) {
+        while (retry_times < 3) {
             st = ThriftRpcHelper::rpc<FrontendServiceClient>(
                     master_addr.hostname, master_addr.port,
                     [&request, &result](FrontendServiceConnection& client) {

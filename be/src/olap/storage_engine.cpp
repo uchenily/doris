@@ -47,8 +47,6 @@
 #include <unordered_set>
 #include <utility>
 
-// #include "agent/task_worker_pool.h"
-#include "cloud/cloud_storage_engine.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/status.h"
@@ -128,11 +126,6 @@ RowsetId BaseStorageEngine::next_rowset_id() {
 StorageEngine& BaseStorageEngine::to_local() {
     CHECK_EQ(_type, Type::LOCAL);
     return *static_cast<StorageEngine*>(this);
-}
-
-CloudStorageEngine& BaseStorageEngine::to_cloud() {
-    CHECK_EQ(_type, Type::CLOUD);
-    return *static_cast<CloudStorageEngine*>(this);
 }
 
 int64_t BaseStorageEngine::memory_limitation_bytes_per_thread_for_schema_change() const {
@@ -1350,7 +1343,7 @@ Status StorageEngine::create_tablet(const TCreateTabletReq& request, RuntimeProf
     return _tablet_manager->create_tablet(request, stores, profile);
 }
 
-Result<BaseTabletSPtr> StorageEngine::get_tablet(int64_t tablet_id, SyncRowsetStats* sync_stats,
+Result<BaseTabletSPtr> StorageEngine::get_tablet(int64_t tablet_id,
                                                  bool force_use_cache) {
     BaseTabletSPtr tablet;
     std::string err;

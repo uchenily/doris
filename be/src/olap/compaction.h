@@ -31,7 +31,6 @@
 #include <string>
 #include <vector>
 
-#include "cloud/cloud_tablet.h"
 #include "common/status.h"
 #include "io/io_common.h"
 #include "olap/merger.h"
@@ -48,7 +47,6 @@ class MemTrackerLimiter;
 class RowsetWriter;
 struct RowsetWriterContext;
 class StorageEngine;
-class CloudStorageEngine;
 
 static constexpr int COMPACTION_DELETE_BITMAP_LOCK_ID = -1;
 static constexpr int64_t INVALID_COMPACTION_INITIATOR_ID = -100;
@@ -206,52 +204,6 @@ private:
     void update_compaction_level();
 
     PendingRowsetGuard _pending_rs_guard;
-};
-
-class CloudCompactionMixin : public Compaction {
-public:
-    CloudCompactionMixin(CloudStorageEngine& engine, CloudTabletSPtr tablet,
-                         const std::string& label);
-
-    ~CloudCompactionMixin() override = default;
-
-    Status execute_compact() override;
-
-    int64_t initiator() const;
-
-    int64_t num_input_rowsets() const;
-
-protected:
-    CloudTablet* cloud_tablet() { return static_cast<CloudTablet*>(_tablet.get()); }
-
-    Status update_delete_bitmap() override;
-
-    virtual Status garbage_collection();
-
-    CloudStorageEngine& _engine;
-
-    std::string _uuid;
-
-    int64_t _expiration = 0;
-
-    virtual Status rebuild_tablet_schema() { return Status::OK(); }
-
-private:
-    Status construct_output_rowset_writer(RowsetWriterContext& ctx) override;
-
-    Status set_storage_resource_from_input_rowsets(RowsetWriterContext& ctx);
-
-    Status execute_compact_impl(int64_t permits);
-
-    Status build_basic_info();
-
-    virtual Status modify_rowsets();
-
-    int64_t get_compaction_permits();
-
-    void update_compaction_level();
-
-    bool should_cache_compaction_output();
 };
 
 } // namespace doris

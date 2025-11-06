@@ -32,14 +32,12 @@
 #include <utility>
 #include <vector>
 
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/factory_creator.h"
 #include "common/status.h"
 #include "io/fs/file_system.h"
 #include "io/fs/local_file_system.h"
 #include "runtime/exec_env.h"
-#include "runtime/plugin/cloud_plugin_downloader.h"
 #include "util/dynamic_util.h"
 #include "util/md5.h"
 #include "util/string_util.h"
@@ -400,23 +398,23 @@ Status UserFunctionCache::_check_and_return_default_java_udf_url(const std::stri
 
     std::filesystem::path file = default_url + "/" + url;
 
-    // In cloud mode, always try cloud download first (prioritize cloud mode)
-    if (config::is_cloud_mode()) {
-        std::string target_path = default_url + "/" + url;
-        std::string downloaded_path;
-        Status status = CloudPluginDownloader::download_from_cloud(
-                CloudPluginDownloader::PluginType::JAVA_UDF, url, target_path, &downloaded_path);
-        if (status.ok() && !downloaded_path.empty()) {
-            *result_url = "file://" + downloaded_path;
-            return Status::OK();
-        } else {
-            LOG(WARNING) << "Failed to download Java UDF from cloud: " << status.to_string();
-            return Status::RuntimeError(
-                    "Cannot download Java UDF from cloud: {}. "
-                    "Please retry later or check your UDF has been uploaded to cloud.",
-                    url);
-        }
-    }
+    // // In cloud mode, always try cloud download first (prioritize cloud mode)
+    // if (config::is_cloud_mode()) {
+    //     std::string target_path = default_url + "/" + url;
+    //     std::string downloaded_path;
+    //     Status status = CloudPluginDownloader::download_from_cloud(
+    //             CloudPluginDownloader::PluginType::JAVA_UDF, url, target_path, &downloaded_path);
+    //     if (status.ok() && !downloaded_path.empty()) {
+    //         *result_url = "file://" + downloaded_path;
+    //         return Status::OK();
+    //     } else {
+    //         LOG(WARNING) << "Failed to download Java UDF from cloud: " << status.to_string();
+    //         return Status::RuntimeError(
+    //                 "Cannot download Java UDF from cloud: {}. "
+    //                 "Please retry later or check your UDF has been uploaded to cloud.",
+    //                 url);
+    //     }
+    // }
 
     // Return the file path regardless of whether it exists (original UDF behavior)
     *result_url = "file://" + default_url + "/" + url;

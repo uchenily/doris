@@ -29,7 +29,6 @@
 #include <utility>
 
 #include "bvar/bvar.h"
-#include "cloud/config.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "common/config.h"
 #include "common/logging.h"

@@ -33,7 +33,6 @@
 #include <ostream>
 #include <utility>
 
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/config.h"
 #include "common/exception.h"
@@ -1020,8 +1019,7 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
     case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
     case TDataSinkType::OLAP_TABLE_SINK: {
         if (state->query_options().enable_memtable_on_sink_node &&
-            !_has_inverted_index_v1_or_partial_update(thrift_sink.olap_table_sink) &&
-            !config::is_cloud_mode()) {
+            !_has_inverted_index_v1_or_partial_update(thrift_sink.olap_table_sink)) {
             _sink = std::make_shared<OlapTableSinkV2OperatorX>(pool, next_sink_operator_id(),
                                                                row_desc, output_exprs);
         } else {

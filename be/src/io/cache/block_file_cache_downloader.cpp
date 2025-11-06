@@ -32,13 +32,12 @@
 #include <unordered_set>
 #include <variant>
 
-#include "cloud/cloud_tablet_mgr.h"
-#include "cloud/cloud_warm_up_manager.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "cpp/sync_point.h"
 #include "io/fs/file_reader.h"
 #include "io/io_common.h"
+#include "olap/base_tablet.h"
 #include "olap/rowset/beta_rowset.h"
 #include "util/bvar_helper.h"
 
@@ -50,15 +49,6 @@ bvar::Adder<uint64_t> g_file_cache_download_submitted_num("file_cache_download_s
 bvar::Adder<uint64_t> g_file_cache_download_finished_num("file_cache_download_finished_num");
 bvar::Adder<uint64_t> g_file_cache_download_failed_num("file_cache_download_failed_num");
 bvar::Adder<uint64_t> block_file_cache_downloader_task_total("file_cache_downloader_queue_total");
-
-FileCacheBlockDownloader::FileCacheBlockDownloader(CloudStorageEngine& engine) : _engine(engine) {
-    _poller = std::thread(&FileCacheBlockDownloader::polling_download_task, this);
-    auto st = ThreadPoolBuilder("FileCacheBlockDownloader")
-                      .set_min_threads(config::file_cache_downloader_thread_num_min)
-                      .set_max_threads(config::file_cache_downloader_thread_num_max)
-                      .build(&_workers);
-    CHECK(st.ok()) << "failed to create FileCacheBlockDownloader";
-}
 
 FileCacheBlockDownloader::~FileCacheBlockDownloader() {
     {
@@ -173,122 +163,122 @@ std::unordered_map<std::string, RowsetMetaSharedPtr> snapshot_rs_metas(BaseTable
     return id_to_rowset_meta_map;
 }
 
-static void clean_up_expired_mappings(void* arg) {
-    // Reclaim ownership with unique_ptr for automatic memory management
-    std::unique_ptr<int64_t> tablet_id(static_cast<int64_t*>(arg));
-    auto& manager = ExecEnv::GetInstance()->storage_engine().to_cloud().cloud_warm_up_manager();
-    manager.remove_balanced_tablet(*tablet_id);
-    VLOG_DEBUG << "Removed expired balanced warm up cache tablet: tablet_id=" << *tablet_id;
-}
+// static void clean_up_expired_mappings(void* arg) {
+//     // Reclaim ownership with unique_ptr for automatic memory management
+//     std::unique_ptr<int64_t> tablet_id(static_cast<int64_t*>(arg));
+//     auto& manager = ExecEnv::GetInstance()->storage_engine().to_cloud().cloud_warm_up_manager();
+//     manager.remove_balanced_tablet(*tablet_id);
+//     VLOG_DEBUG << "Removed expired balanced warm up cache tablet: tablet_id=" << *tablet_id;
+// }
 
 void FileCacheBlockDownloader::download_file_cache_block(
         const DownloadTask::FileCacheBlockMetaVec& metas) {
-    std::unordered_set<int64_t> synced_tablets;
-    std::ranges::for_each(metas, [&](const FileCacheBlockMeta& meta) {
-        VLOG_DEBUG << "download_file_cache_block: start, tablet_id=" << meta.tablet_id()
-                   << ", rowset_id=" << meta.rowset_id() << ", segment_id=" << meta.segment_id()
-                   << ", offset=" << meta.offset() << ", size=" << meta.size()
-                   << ", type=" << meta.cache_type();
-        CloudTabletSPtr tablet;
-        if (auto res = _engine.tablet_mgr().get_tablet(meta.tablet_id(), false); !res.has_value()) {
-            LOG(INFO) << "failed to find tablet " << meta.tablet_id() << " : " << res.error();
-            return;
-        } else {
-            tablet = std::move(res).value();
-        }
-        if (!synced_tablets.contains(meta.tablet_id())) {
-            auto st = tablet->sync_rowsets();
-            if (!st) {
-                // just log failed, try it best
-                LOG(WARNING) << "failed to sync rowsets: " << meta.tablet_id()
-                             << " err msg: " << st.to_string();
-            }
-            synced_tablets.insert(meta.tablet_id());
-        }
-        auto id_to_rowset_meta_map = snapshot_rs_metas(tablet.get());
-        auto find_it = id_to_rowset_meta_map.find(meta.rowset_id());
-        if (find_it == id_to_rowset_meta_map.end()) {
-            LOG(WARNING) << "download_file_cache_block: tablet_id=" << meta.tablet_id()
-                         << " rowset_id not found, rowset_id=" << meta.rowset_id();
-            return;
-        }
-
-        auto storage_resource = find_it->second->remote_storage_resource();
-        if (!storage_resource) {
-            LOG(WARNING) << storage_resource.error();
-            return;
-        }
-
-        auto download_done = [&, tablet_id = meta.tablet_id()](Status st) {
-            std::lock_guard lock(_inflight_mtx);
-            auto it = _inflight_tablets.find(tablet_id);
-            TEST_SYNC_POINT_CALLBACK("FileCacheBlockDownloader::download_file_cache_block");
-            if (it == _inflight_tablets.end()) {
-                LOG(WARNING) << "inflight ref cnt not exist, tablet id " << tablet_id;
-            } else {
-                it->second--;
-                VLOG_DEBUG << "download_file_cache_block: inflight_tablets[" << tablet_id
-                           << "] = " << it->second;
-                if (it->second <= 0) {
-                    DCHECK_EQ(it->second, 0) << it->first;
-                    _inflight_tablets.erase(it);
-                    VLOG_DEBUG << "download_file_cache_block: erase inflight_tablets[" << tablet_id
-                               << "]";
-                }
-            }
-            // Use std::make_unique to avoid raw pointer allocation
-            auto tablet_id_ptr = std::make_unique<int64_t>(tablet_id);
-            unsigned long expired_ms = g_tablet_report_inactive_duration_ms;
-            if (doris::config::cache_read_from_peer_expired_seconds > 0 &&
-                doris::config::cache_read_from_peer_expired_seconds <=
-                        g_tablet_report_inactive_duration_ms / 1000) {
-                expired_ms = doris::config::cache_read_from_peer_expired_seconds * 1000;
-            }
-            bthread_timer_t timer_id;
-            // ATTN: The timer callback will reclaim ownership of the tablet_id_ptr, so we need to release it after the timer is added.
-            if (const int rc =
-                        bthread_timer_add(&timer_id, butil::milliseconds_from_now(expired_ms),
-                                          clean_up_expired_mappings, tablet_id_ptr.get());
-                rc == 0) {
-                tablet_id_ptr.release();
-            } else {
-                LOG(WARNING) << "Fail to add timer for clean up expired mappings for tablet_id="
-                             << tablet_id << " rc=" << rc;
-            }
-            LOG(INFO) << "download_file_cache_block: download_done, tablet_Id=" << tablet_id
-                      << " status=" << st.to_string() << " expired_ms=" << expired_ms;
-        };
-
-        std::string path;
-        doris::FileType file_type =
-                meta.has_file_type() ? meta.file_type() : doris::FileType::SEGMENT_FILE;
-        bool is_index = (file_type == doris::FileType::INVERTED_INDEX_FILE);
-        if (is_index) {
-            path = storage_resource.value()->remote_idx_v2_path(*find_it->second,
-                                                                meta.segment_id());
-        } else {
-            // default .dat
-            path = storage_resource.value()->remote_segment_path(*find_it->second,
-                                                                 meta.segment_id());
-        }
-
-        DownloadFileMeta download_meta {
-                .path = path,
-                .file_size = meta.has_file_size() ? meta.file_size()
-                                                  : -1, // To avoid trigger get file size IO
-                .offset = meta.offset(),
-                .download_size = meta.size(),
-                .file_system = storage_resource.value()->fs,
-                .ctx =
-                        {
-                                .is_index_data = meta.cache_type() == ::doris::FileCacheType::INDEX,
-                                .expiration_time = meta.expiration_time(),
-                                .is_dryrun = config::enable_reader_dryrun_when_download_file_cache,
-                        },
-                .download_done = std::move(download_done),
-        };
-        download_segment_file(download_meta);
-    });
+    // std::unordered_set<int64_t> synced_tablets;
+    // std::ranges::for_each(metas, [&](const FileCacheBlockMeta& meta) {
+    //     VLOG_DEBUG << "download_file_cache_block: start, tablet_id=" << meta.tablet_id()
+    //                << ", rowset_id=" << meta.rowset_id() << ", segment_id=" << meta.segment_id()
+    //                << ", offset=" << meta.offset() << ", size=" << meta.size()
+    //                << ", type=" << meta.cache_type();
+    //     CloudTabletSPtr tablet;
+    //     if (auto res = _engine.tablet_mgr().get_tablet(meta.tablet_id(), false); !res.has_value()) {
+    //         LOG(INFO) << "failed to find tablet " << meta.tablet_id() << " : " << res.error();
+    //         return;
+    //     } else {
+    //         tablet = std::move(res).value();
+    //     }
+    //     if (!synced_tablets.contains(meta.tablet_id())) {
+    //         auto st = tablet->sync_rowsets();
+    //         if (!st) {
+    //             // just log failed, try it best
+    //             LOG(WARNING) << "failed to sync rowsets: " << meta.tablet_id()
+    //                          << " err msg: " << st.to_string();
+    //         }
+    //         synced_tablets.insert(meta.tablet_id());
+    //     }
+    //     auto id_to_rowset_meta_map = snapshot_rs_metas(tablet.get());
+    //     auto find_it = id_to_rowset_meta_map.find(meta.rowset_id());
+    //     if (find_it == id_to_rowset_meta_map.end()) {
+    //         LOG(WARNING) << "download_file_cache_block: tablet_id=" << meta.tablet_id()
+    //                      << " rowset_id not found, rowset_id=" << meta.rowset_id();
+    //         return;
+    //     }
+    //
+    //     auto storage_resource = find_it->second->remote_storage_resource();
+    //     if (!storage_resource) {
+    //         LOG(WARNING) << storage_resource.error();
+    //         return;
+    //     }
+    //
+    //     auto download_done = [&, tablet_id = meta.tablet_id()](Status st) {
+    //         std::lock_guard lock(_inflight_mtx);
+    //         auto it = _inflight_tablets.find(tablet_id);
+    //         TEST_SYNC_POINT_CALLBACK("FileCacheBlockDownloader::download_file_cache_block");
+    //         if (it == _inflight_tablets.end()) {
+    //             LOG(WARNING) << "inflight ref cnt not exist, tablet id " << tablet_id;
+    //         } else {
+    //             it->second--;
+    //             VLOG_DEBUG << "download_file_cache_block: inflight_tablets[" << tablet_id
+    //                        << "] = " << it->second;
+    //             if (it->second <= 0) {
+    //                 DCHECK_EQ(it->second, 0) << it->first;
+    //                 _inflight_tablets.erase(it);
+    //                 VLOG_DEBUG << "download_file_cache_block: erase inflight_tablets[" << tablet_id
+    //                            << "]";
+    //             }
+    //         }
+    //         // Use std::make_unique to avoid raw pointer allocation
+    //         auto tablet_id_ptr = std::make_unique<int64_t>(tablet_id);
+    //         unsigned long expired_ms = g_tablet_report_inactive_duration_ms;
+    //         if (doris::config::cache_read_from_peer_expired_seconds > 0 &&
+    //             doris::config::cache_read_from_peer_expired_seconds <=
+    //                     g_tablet_report_inactive_duration_ms / 1000) {
+    //             expired_ms = doris::config::cache_read_from_peer_expired_seconds * 1000;
+    //         }
+    //         bthread_timer_t timer_id;
+    //         // ATTN: The timer callback will reclaim ownership of the tablet_id_ptr, so we need to release it after the timer is added.
+    //         if (const int rc =
+    //                     bthread_timer_add(&timer_id, butil::milliseconds_from_now(expired_ms),
+    //                                       clean_up_expired_mappings, tablet_id_ptr.get());
+    //             rc == 0) {
+    //             tablet_id_ptr.release();
+    //         } else {
+    //             LOG(WARNING) << "Fail to add timer for clean up expired mappings for tablet_id="
+    //                          << tablet_id << " rc=" << rc;
+    //         }
+    //         LOG(INFO) << "download_file_cache_block: download_done, tablet_Id=" << tablet_id
+    //                   << " status=" << st.to_string() << " expired_ms=" << expired_ms;
+    //     };
+    //
+    //     std::string path;
+    //     doris::FileType file_type =
+    //             meta.has_file_type() ? meta.file_type() : doris::FileType::SEGMENT_FILE;
+    //     bool is_index = (file_type == doris::FileType::INVERTED_INDEX_FILE);
+    //     if (is_index) {
+    //         path = storage_resource.value()->remote_idx_v2_path(*find_it->second,
+    //                                                             meta.segment_id());
+    //     } else {
+    //         // default .dat
+    //         path = storage_resource.value()->remote_segment_path(*find_it->second,
+    //                                                              meta.segment_id());
+    //     }
+    //
+    //     DownloadFileMeta download_meta {
+    //             .path = path,
+    //             .file_size = meta.has_file_size() ? meta.file_size()
+    //                                               : -1, // To avoid trigger get file size IO
+    //             .offset = meta.offset(),
+    //             .download_size = meta.size(),
+    //             .file_system = storage_resource.value()->fs,
+    //             .ctx =
+    //                     {
+    //                             .is_index_data = meta.cache_type() == ::doris::FileCacheType::INDEX,
+    //                             .expiration_time = meta.expiration_time(),
+    //                             .is_dryrun = config::enable_reader_dryrun_when_download_file_cache,
+    //                     },
+    //             .download_done = std::move(download_done),
+    //     };
+    //     download_segment_file(download_meta);
+    // });
 }
 
 void FileCacheBlockDownloader::download_segment_file(const DownloadFileMeta& meta) {

@@ -31,7 +31,6 @@
 #include <sstream>
 
 #include "bvar/bvar.h"
-#include "cloud/config.h"
 #include "common/signal_handler.h"
 #include "exec/tablet_info.h"
 #include "olap/tablet.h"
@@ -151,7 +150,7 @@ Status TabletStream::append_data(const PStreamHeader& header, butil::IOBuf* data
         signal::set_signal_task_id(_load_id);
         g_load_stream_flush_running_threads << -1;
         auto st = _load_stream_writer->append_data(new_segid, header.offset(), buf, file_type);
-        if (!st.ok() && !config::is_cloud_mode()) {
+        if (!st.ok()) {
             auto res = ExecEnv::get_tablet(_id);
             TabletSharedPtr tablet =
                     res.has_value() ? std::dynamic_pointer_cast<Tablet>(res.value()) : nullptr;

@@ -27,7 +27,6 @@
 #include <string>
 #include <utility>
 
-#include "cloud/config.h"
 #include "common/logging.h"
 #include "cpp/sync_point.h"
 #include "io/cache/block_file_cache.h"
@@ -266,7 +265,7 @@ Status PageIO::read_and_decompress_page(const PageReadOptions& opts, PageHandle*
                                         Slice* body, PageFooterPB* footer) {
     // First try to read with file cache
     Status st = do_read_and_decompress_page(opts, handle, body, footer);
-    if (!st.is<ErrorCode::CORRUPTION>() || !config::is_cloud_mode()) {
+    if (!st.is<ErrorCode::CORRUPTION>()) {
         return st;
     }
 

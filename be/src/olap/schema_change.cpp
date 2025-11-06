@@ -30,8 +30,6 @@
 #include <tuple>
 #include <utility>
 
-#include "cloud/cloud_schema_change_job.h"
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/consts.h"
 #include "common/logging.h"

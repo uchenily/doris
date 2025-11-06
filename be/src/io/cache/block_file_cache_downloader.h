@@ -31,8 +31,9 @@
 #include <thread>
 #include <variant>
 
-#include "cloud/cloud_storage_engine.h"
 #include "io/fs/file_system.h"
+#include "io/io_common.h"
+#include "util/threadpool.h"
 
 namespace doris::io {
 
@@ -60,8 +61,6 @@ struct DownloadTask {
 
 class FileCacheBlockDownloader {
 public:
-    explicit FileCacheBlockDownloader(CloudStorageEngine& engine);
-
     ~FileCacheBlockDownloader();
 
     // download into cache block
@@ -78,7 +77,7 @@ private:
     void download_file_cache_block(const DownloadTask::FileCacheBlockMetaVec&);
     void download_segment_file(const DownloadFileMeta&);
 
-    CloudStorageEngine& _engine;
+    // CloudStorageEngine& _engine;
 
     std::thread _poller;
     std::unique_ptr<ThreadPool> _workers;

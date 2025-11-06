@@ -28,10 +28,6 @@
 #include <string>
 #include <utility>
 
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_tablet.h"
-#include "cloud/cloud_tablet_mgr.h"
-#include "cloud/config.h"
 #include "common/status.h"
 #include "olap/olap_common.h"
 #include "olap/rowset/beta_rowset.h"
@@ -163,25 +159,25 @@ Status SchemaColumnDataSizesScanner::_get_all_column_data_sizes() {
         }
     };
 
-    if (config::is_cloud_mode()) {
-        // only query cloud tablets in lru cache instead of all tablets
-        std::vector<std::weak_ptr<CloudTablet>> tablets =
-                ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_mgr().get_weak_tablets();
-        for (const std::weak_ptr<CloudTablet>& tablet : tablets) {
-            if (!tablet.expired()) {
-                auto t = tablet.lock();
-                std::vector<RowsetSharedPtr> rowsets;
-                {
-                    std::shared_lock rowset_ldlock(t->get_header_lock());
-                    for (const auto& it : t->rowset_map()) {
-                        rowsets.emplace_back(it.second);
-                    }
-                }
-                process_rowsets(rowsets, t->table_id(), t->index_id(), t->partition_id(),
-                                t->tablet_id());
-            }
-        }
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     // only query cloud tablets in lru cache instead of all tablets
+    //     std::vector<std::weak_ptr<CloudTablet>> tablets =
+    //             ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_mgr().get_weak_tablets();
+    //     for (const std::weak_ptr<CloudTablet>& tablet : tablets) {
+    //         if (!tablet.expired()) {
+    //             auto t = tablet.lock();
+    //             std::vector<RowsetSharedPtr> rowsets;
+    //             {
+    //                 std::shared_lock rowset_ldlock(t->get_header_lock());
+    //                 for (const auto& it : t->rowset_map()) {
+    //                     rowsets.emplace_back(it.second);
+    //                 }
+    //             }
+    //             process_rowsets(rowsets, t->table_id(), t->index_id(), t->partition_id(),
+    //                             t->tablet_id());
+    //         }
+    //     }
+    // } else {
         std::vector<TabletSharedPtr> tablets = ExecEnv::GetInstance()
                                                        ->storage_engine()
                                                        .to_local()
@@ -200,7 +196,7 @@ Status SchemaColumnDataSizesScanner::_get_all_column_data_sizes() {
             process_rowsets(rowsets, tablet->table_id(), tablet->index_id(), tablet->partition_id(),
                             tablet->tablet_id());
         }
-    }
+    // }
     return Status::OK();
 }
 

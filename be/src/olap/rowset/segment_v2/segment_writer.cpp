@@ -24,7 +24,6 @@
 #include <algorithm>
 
 // IWYU pragma: no_include <opentelemetry/common/threadlocal.h>
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "common/config.h"
@@ -1020,7 +1019,7 @@ Status SegmentWriter::finalize(uint64_t* segment_file_size, uint64_t* index_size
     // write data
     RETURN_IF_ERROR(finalize_columns_data());
     // Get the index start before finalize_footer since this function would write new data.
-    uint64_t index_start = _file_writer->bytes_appended();
+    // uint64_t index_start = _file_writer->bytes_appended();
     // write index
     RETURN_IF_ERROR(finalize_columns_index(index_size));
     // write footer
@@ -1032,16 +1031,16 @@ Status SegmentWriter::finalize(uint64_t* segment_file_size, uint64_t* index_size
     }
     // When the cache type is not ttl(expiration time == 0), the data should be split into normal cache queue
     // and index cache queue
-    if (auto* cache_builder = _file_writer->cache_builder(); cache_builder != nullptr &&
-                                                             cache_builder->_expiration_time == 0 &&
-                                                             config::is_cloud_mode()) {
-        auto size = *index_size + *segment_file_size;
-        auto holder = cache_builder->allocate_cache_holder(index_start, size);
-        for (auto& segment : holder->file_blocks) {
-            static_cast<void>(
-                    segment->change_cache_type_between_normal_and_index(io::FileCacheType::INDEX));
-        }
-    }
+    // if (auto* cache_builder = _file_writer->cache_builder(); cache_builder != nullptr &&
+    //                                                          cache_builder->_expiration_time == 0 &&
+    //                                                          config::is_cloud_mode()) {
+    //     auto size = *index_size + *segment_file_size;
+    //     auto holder = cache_builder->allocate_cache_holder(index_start, size);
+    //     for (auto& segment : holder->file_blocks) {
+    //         static_cast<void>(
+    //                 segment->change_cache_type_between_normal_and_index(io::FileCacheType::INDEX));
+    //     }
+    // }
     return Status::OK();
 }
 

@@ -36,7 +36,6 @@
 #include <sstream>
 #include <utility>
 
-#include "cloud/config.h"
 #include "common/status.h"
 #include "cpp/sync_point.h"
 #include "olap/base_tablet.h"
@@ -145,7 +144,7 @@ static bvar::LatencyRecorder g_remote_fetch_tablet_rowsets_latency("remote_fetch
         return result;
     }
 
-    if (!config::is_cloud_mode() || !options.enable_fetch_rowsets_from_peers) {
+    if (!options.enable_fetch_rowsets_from_peers) {
         return ResultError(std::move(maybe_versions.error()));
     }
     auto ret = _remote_capture_rowsets(version_range);

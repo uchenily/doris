@@ -30,9 +30,6 @@
 #include <ostream>
 #include <set>
 
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_tablet_hotspot.h"
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/consts.h"
 #include "common/logging.h"
@@ -211,10 +208,10 @@ Status OlapScanner::prepare() {
             // the rowsets maybe compacted when the last olap scanner starts
             ReadSource read_source;
 
-            if (config::is_cloud_mode()) {
-                // FIXME(plat1ko): Avoid pointer cast
-                ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
-            }
+            // if (config::is_cloud_mode()) {
+            //     // FIXME(plat1ko): Avoid pointer cast
+            //     ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
+            // }
 
             auto maybe_read_source = tablet->capture_read_source(
                     _tablet_reader_params.version,
@@ -222,12 +219,12 @@ Status OlapScanner::prepare() {
                             .skip_missing_versions = _state->skip_missing_version(),
                             .enable_fetch_rowsets_from_peers =
                                     config::enable_fetch_rowsets_from_peer_replicas,
-                            .enable_prefer_cached_rowset =
-                                    config::is_cloud_mode() ? _state->enable_prefer_cached_rowset()
-                                                            : false,
-                            .query_freshness_tolerance_ms =
-                                    config::is_cloud_mode() ? _state->query_freshness_tolerance_ms()
-                                                            : -1,
+                            .enable_prefer_cached_rowset = false,
+                                    // config::is_cloud_mode() ? _state->enable_prefer_cached_rowset()
+                                    //                         : false,
+                            .query_freshness_tolerance_ms = -1,
+                                    // config::is_cloud_mode() ? _state->query_freshness_tolerance_ms()
+                                    //                         : -1,
                     });
             if (!maybe_read_source) {
                 LOG(WARNING) << "fail to init reader. res=" << maybe_read_source.error();
@@ -558,10 +555,10 @@ Status OlapScanner::_init_return_columns() {
 }
 
 doris::TabletStorageType OlapScanner::get_storage_type() {
-    if (config::is_cloud_mode()) {
-        // we don't have cold storage in cloud mode, all storage is treated as local
-        return doris::TabletStorageType::STORAGE_TYPE_LOCAL;
-    }
+    // if (config::is_cloud_mode()) {
+    //     // we don't have cold storage in cloud mode, all storage is treated as local
+    //     return doris::TabletStorageType::STORAGE_TYPE_LOCAL;
+    // }
     int local_reader = 0;
     for (const auto& reader : _tablet_reader_params.rs_splits) {
         local_reader += reader.rs_reader->rowset()->is_local();
@@ -766,12 +763,12 @@ void OlapScanner::_collect_profile_before_close() {
                                   &stats.inverted_index_stats);
 
     // only cloud deploy mode will use file cache.
-    if (config::is_cloud_mode() && config::enable_file_cache) {
-        io::FileCacheProfileReporter cache_profile(local_state->_segment_profile.get());
-        cache_profile.update(&stats.file_cache_stats);
-        _state->get_query_ctx()->resource_ctx()->io_context()->update_bytes_write_into_cache(
-                stats.file_cache_stats.bytes_write_into_cache);
-    }
+    // if (config::is_cloud_mode() && config::enable_file_cache) {
+    //     io::FileCacheProfileReporter cache_profile(local_state->_segment_profile.get());
+    //     cache_profile.update(&stats.file_cache_stats);
+    //     _state->get_query_ctx()->resource_ctx()->io_context()->update_bytes_write_into_cache(
+    //             stats.file_cache_stats.bytes_write_into_cache);
+    // }
     COUNTER_UPDATE(local_state->_output_index_result_column_timer,
                    stats.output_index_result_column_timer);
     COUNTER_UPDATE(local_state->_filtered_segment_counter, stats.filtered_segment_number);

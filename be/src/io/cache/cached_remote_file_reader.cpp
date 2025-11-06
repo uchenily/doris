@@ -34,7 +34,6 @@
 #include <thread>
 #include <vector>
 
-#include "cloud/cloud_warm_up_manager.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "common/config.h"
 #include "cpp/sync_point.h"
@@ -153,39 +152,39 @@ std::pair<size_t, size_t> CachedRemoteFileReader::s_align_size(size_t offset, si
 }
 
 namespace {
-std::optional<int64_t> extract_tablet_id(const std::string& file_path) {
-    return StorageResource::parse_tablet_id_from_path(file_path);
-}
+// std::optional<int64_t> extract_tablet_id(const std::string& file_path) {
+//     return StorageResource::parse_tablet_id_from_path(file_path);
+// }
 
 // Get peer connection info from tablet_id
 std::pair<std::string, int> get_peer_connection_info(const std::string& file_path) {
     std::string host = "";
     int port = 0;
 
-    // Try to get tablet_id from actual path and lookup tablet info
-    if (auto tablet_id = extract_tablet_id(file_path)) {
-        auto& manager = ExecEnv::GetInstance()->storage_engine().to_cloud().cloud_warm_up_manager();
-        if (auto tablet_info = manager.get_balanced_tablet_info(*tablet_id)) {
-            host = tablet_info->first;
-            port = tablet_info->second;
-        } else {
-            LOG_WARNING("get peer connection info not found")
-                    .tag("tablet_id", *tablet_id)
-                    .tag("file_path", file_path);
-        }
-    } else {
-        LOG_WARNING("parse tablet id from path failed")
-                .tag("tablet_id", "null")
-                .tag("file_path", file_path);
-    }
-
-    DBUG_EXECUTE_IF("PeerFileCacheReader::_fetch_from_peer_cache_blocks", {
-        host = dp->param<std::string>("host", "127.0.0.1");
-        port = dp->param("port", 9060);
-        LOG_WARNING("debug point PeerFileCacheReader::_fetch_from_peer_cache_blocks")
-                .tag("host", host)
-                .tag("port", port);
-    });
+    // // Try to get tablet_id from actual path and lookup tablet info
+    // if (auto tablet_id = extract_tablet_id(file_path)) {
+    //     auto& manager = ExecEnv::GetInstance()->storage_engine().to_cloud().cloud_warm_up_manager();
+    //     if (auto tablet_info = manager.get_balanced_tablet_info(*tablet_id)) {
+    //         host = tablet_info->first;
+    //         port = tablet_info->second;
+    //     } else {
+    //         LOG_WARNING("get peer connection info not found")
+    //                 .tag("tablet_id", *tablet_id)
+    //                 .tag("file_path", file_path);
+    //     }
+    // } else {
+    //     LOG_WARNING("parse tablet id from path failed")
+    //             .tag("tablet_id", "null")
+    //             .tag("file_path", file_path);
+    // }
+    //
+    // DBUG_EXECUTE_IF("PeerFileCacheReader::_fetch_from_peer_cache_blocks", {
+    //     host = dp->param<std::string>("host", "127.0.0.1");
+    //     port = dp->param("port", 9060);
+    //     LOG_WARNING("debug point PeerFileCacheReader::_fetch_from_peer_cache_blocks")
+    //             .tag("host", host)
+    //             .tag("port", port);
+    // });
 
     return {host, port};
 }
@@ -222,14 +221,14 @@ Status execute_peer_read(const std::vector<FileBlockSPtr>& empty_blocks, size_t 
 }
 
 // Execute S3 read
-Status execute_s3_read(size_t empty_start, size_t& size, std::unique_ptr<char[]>& buffer,
-                       ReadStatistics& stats, const IOContext* io_ctx,
-                       FileReaderSPtr remote_file_reader) {
-    s3_read_counter << 1;
-    SCOPED_RAW_TIMER(&stats.remote_read_timer);
-    stats.from_peer_cache = false;
-    return remote_file_reader->read_at(empty_start, Slice(buffer.get(), size), &size, io_ctx);
-}
+// Status execute_s3_read(size_t empty_start, size_t& size, std::unique_ptr<char[]>& buffer,
+//                        ReadStatistics& stats, const IOContext* io_ctx,
+//                        FileReaderSPtr remote_file_reader) {
+//     s3_read_counter << 1;
+//     SCOPED_RAW_TIMER(&stats.remote_read_timer);
+//     stats.from_peer_cache = false;
+//     return remote_file_reader->read_at(empty_start, Slice(buffer.get(), size), &size, io_ctx);
+// }
 
 } // anonymous namespace
 
@@ -248,28 +247,28 @@ Status CachedRemoteFileReader::_execute_remote_read(const std::vector<FileBlockS
                 .tag("size", size)
                 .tag("type", read_type);
         // Execute appropriate read strategy
-        if (read_type == "s3") {
-            return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
-        } else {
+        // if (read_type == "s3") {
+        //     return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
+        // } else {
             return execute_peer_read(empty_blocks, empty_start, size, buffer, path().native(),
                                      _is_doris_table, stats, io_ctx);
-        }
+        // }
     });
 
-    if (!_is_doris_table || !doris::config::enable_cache_read_from_peer) {
-        return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
-    } else {
+    // if (!_is_doris_table || !doris::config::enable_cache_read_from_peer) {
+    //     return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
+    // } else {
         // first try peer read, if peer failed, fallback to S3
         // peer timeout is 5 seconds
         // TODO(dx): here peer and s3 reader need to get data in parallel, and take the one that is correct and returns first
         auto st = execute_peer_read(empty_blocks, empty_start, size, buffer, path().native(),
                                     _is_doris_table, stats, io_ctx);
-        if (!st.ok()) {
-            // Fallback to S3
-            return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
-        }
+        // if (!st.ok()) {
+        //     // Fallback to S3
+        //     return execute_s3_read(empty_start, size, buffer, stats, io_ctx, _remote_file_reader);
+        // }
         return st;
-    }
+    // }
 }
 
 Status CachedRemoteFileReader::read_at_impl(size_t offset, Slice result, size_t* bytes_read,

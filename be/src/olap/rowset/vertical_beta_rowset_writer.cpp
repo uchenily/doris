@@ -28,7 +28,6 @@
 #include <string>
 #include <utility>
 
-#include "cloud/cloud_rowset_writer.h"
 #include "common/compiler_util.h" // IWYU pragma: keep
 #include "common/logging.h"
 #include "io/fs/file_system.h"
@@ -43,7 +42,6 @@ namespace doris {
 using namespace ErrorCode;
 
 template class VerticalBetaRowsetWriter<BetaRowsetWriter>;
-template class VerticalBetaRowsetWriter<CloudRowsetWriter>;
 
 template <class T>
     requires std::is_base_of_v<BaseBetaRowsetWriter, T>

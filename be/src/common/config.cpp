@@ -38,7 +38,6 @@
 #include <utility>
 #include <vector>
 
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/status.h"
@@ -1972,12 +1971,12 @@ bool init(const char* conf_file, bool fill_conf_map, bool must_exist, bool set_t
         SET_FIELD(it.second, std::vector<std::string>, fill_conf_map, set_to_default);
     }
 
-    if (config::is_cloud_mode()) {
-        auto st = config::set_config("enable_file_cache", "true", true, true);
-        LOG(INFO) << "set config enable_file_cache "
-                  << "true"
-                  << " " << st;
-    }
+    // if (config::is_cloud_mode()) {
+    //     auto st = config::set_config("enable_file_cache", "true", true, true);
+    //     LOG(INFO) << "set config enable_file_cache "
+    //               << "true"
+    //               << " " << st;
+    // }
 
     return true;
 }

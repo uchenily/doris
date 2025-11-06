@@ -45,7 +45,6 @@
 #include <vector>
 
 #include "absl/strings/substitute.h"
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/status.h"

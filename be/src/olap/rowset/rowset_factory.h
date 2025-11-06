@@ -45,8 +45,6 @@ public:
             StorageEngine& engine, const RowsetWriterContext& context, bool is_vertical);
 
     // create and init cloud rowset writer.
-    static Result<std::unique_ptr<RowsetWriter>> create_rowset_writer(
-            CloudStorageEngine& engine, const RowsetWriterContext& context, bool is_vertical);
 };
 
 } // namespace doris

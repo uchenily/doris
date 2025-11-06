@@ -38,7 +38,6 @@
 #include <ostream>
 #include <string>
 
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/status.h"
@@ -73,14 +72,14 @@ std::atomic<int32_t> je_reset_dirty_decay_sleep_time_ms = 0;
 #endif
 
 void update_rowsets_and_segments_num_metrics() {
-    if (config::is_cloud_mode()) {
-        // TODO(plat1ko): CloudStorageEngine
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     // TODO(plat1ko): CloudStorageEngine
+    // } else {
         StorageEngine& engine = ExecEnv::GetInstance()->storage_engine().to_local();
         auto* metrics = DorisMetrics::instance();
         metrics->all_rowsets_num->set_value(engine.tablet_manager()->get_rowset_nums());
         metrics->all_segments_num->set_value(engine.tablet_manager()->get_segment_nums());
-    }
+    // }
 }
 
 } // namespace

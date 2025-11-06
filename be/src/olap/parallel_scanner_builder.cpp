@@ -19,9 +19,6 @@
 
 #include <cstddef>
 
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_tablet_hotspot.h"
-#include "cloud/config.h"
 #include "common/status.h"
 #include "olap/base_tablet.h"
 #include "olap/rowset/beta_rowset.h"
@@ -53,10 +50,10 @@ Status ParallelScannerBuilder::_build_scanners_by_rowid(std::list<ScannerSPtr>& 
         DCHECK(_all_read_sources.contains(tablet->tablet_id()));
         auto& entire_read_source = _all_read_sources[tablet->tablet_id()];
 
-        if (config::is_cloud_mode()) {
-            // FIXME(plat1ko): Avoid pointer cast
-            ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
-        }
+        // if (config::is_cloud_mode()) {
+        //     // FIXME(plat1ko): Avoid pointer cast
+        //     ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
+        // }
 
         // `rs_splits` in `entire read source` will be devided into several partitial read sources
         // to build several parallel scanners, based on segment rows number. All the partitial read sources
@@ -177,10 +174,10 @@ Status ParallelScannerBuilder::_build_scanners_by_segment(std::list<ScannerSPtr>
         DCHECK(_all_read_sources.contains(tablet->tablet_id()));
         auto& entire_read_source = _all_read_sources[tablet->tablet_id()];
 
-        if (config::is_cloud_mode()) {
-            // FIXME(plat1ko): Avoid pointer cast
-            ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
-        }
+        // if (config::is_cloud_mode()) {
+        //     // FIXME(plat1ko): Avoid pointer cast
+        //     ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_hotspot().count(*tablet);
+        // }
 
         // Collect segments into scanners based on rows count instead of one scanner per segment
         TabletReadSource partitial_read_source;

@@ -38,10 +38,6 @@
 #include <vector>
 
 #include "bthread/countdown_event.h"
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_tablet.h"
-#include "cloud/cloud_tablet_mgr.h"
-#include "cloud/config.h"
 #include "common/config.h"
 #include "common/consts.h"
 #include "common/exception.h"
@@ -397,7 +393,7 @@ Status RowIdStorageReader::read_by_rowids(const PMultiGetRequest& request,
         watch.start();
         BaseTabletSPtr tablet = scope_timer_run(
                 [&]() {
-                    auto res = ExecEnv::get_tablet(row_loc.tablet_id(), nullptr, true);
+                    auto res = ExecEnv::get_tablet(row_loc.tablet_id(), true);
                     return !res.has_value() ? nullptr
                                             : std::dynamic_pointer_cast<BaseTablet>(res.value());
                 },

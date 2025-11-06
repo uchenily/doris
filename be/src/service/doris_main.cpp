@@ -45,8 +45,6 @@
 #include <tuple>
 #include <vector>
 
-#include "cloud/cloud_backend_service.h"
-#include "cloud/config.h"
 #include "common/stack_trace.h"
 #include "olap/tablet_schema_cache.h"
 #include "olap/utils.h"
@@ -545,19 +543,19 @@ int main(int argc, char** argv) {
         }
     };
 
-    if (doris::config::is_cloud_mode()) {
-        service = std::make_shared<doris::CloudBackendService>(
-                exec_env->storage_engine().to_cloud(), exec_env);
-        EXIT_IF_ERROR(doris::CloudBackendService::create_service(
-                exec_env->storage_engine().to_cloud(), exec_env, doris::config::be_port, &be_server,
-                std::dynamic_pointer_cast<doris::CloudBackendService>(service)));
-    } else {
+    // if (doris::config::is_cloud_mode()) {
+    //     service = std::make_shared<doris::CloudBackendService>(
+    //             exec_env->storage_engine().to_cloud(), exec_env);
+    //     EXIT_IF_ERROR(doris::CloudBackendService::create_service(
+    //             exec_env->storage_engine().to_cloud(), exec_env, doris::config::be_port, &be_server,
+    //             std::dynamic_pointer_cast<doris::CloudBackendService>(service)));
+    // } else {
         service = std::make_shared<doris::BackendService>(exec_env->storage_engine().to_local(),
                                                           exec_env);
         EXIT_IF_ERROR(doris::BackendService::create_service(
                 exec_env->storage_engine().to_local(), exec_env, doris::config::be_port, &be_server,
                 std::dynamic_pointer_cast<doris::BackendService>(service)));
-    }
+    // }
 
     status = be_server->start();
     stop_work_if_error(status, "Doris BE server did not start correctly, exiting");

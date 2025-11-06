@@ -20,8 +20,6 @@
 #include <gen_cpp/internal_service.pb.h>
 #include <glog/logging.h>
 
-#include "cloud/cloud_tablets_channel.h"
-#include "cloud/config.h"
 #include "common/logging.h"
 #include "olap/storage_engine.h"
 #include "runtime/exec_env.h"
@@ -102,11 +100,11 @@ void LoadChannel::_init_profile() {
 }
 
 Status LoadChannel::open(const PTabletWriterOpenRequest& params) {
-    if (config::is_cloud_mode() && params.txn_expiration() <= 0) {
-        return Status::InternalError(
-                "The txn expiration of PTabletWriterOpenRequest is invalid, value={}",
-                params.txn_expiration());
-    }
+    // if (config::is_cloud_mode() && params.txn_expiration() <= 0) {
+    //     return Status::InternalError(
+    //             "The txn expiration of PTabletWriterOpenRequest is invalid, value={}",
+    //             params.txn_expiration());
+    // }
     if (_resource_ctx->workload_group() != nullptr) {
         RETURN_IF_ERROR(_resource_ctx->workload_group()->add_resource_ctx(
                 _resource_ctx->task_controller()->task_id(), _resource_ctx));
@@ -128,13 +126,13 @@ Status LoadChannel::open(const PTabletWriterOpenRequest& params) {
             // create a new tablets channel
             TabletsChannelKey key(params.id(), index_id);
             BaseStorageEngine& engine = ExecEnv::GetInstance()->storage_engine();
-            if (config::is_cloud_mode()) {
-                channel = std::make_shared<CloudTabletsChannel>(engine.to_cloud(), key, _load_id,
-                                                                _is_high_priority, _self_profile);
-            } else {
+            // if (config::is_cloud_mode()) {
+            //     channel = std::make_shared<CloudTabletsChannel>(engine.to_cloud(), key, _load_id,
+            //                                                     _is_high_priority, _self_profile);
+            // } else {
                 channel = std::make_shared<TabletsChannel>(engine.to_local(), key, _load_id,
                                                            _is_high_priority, _self_profile);
-            }
+            // }
             {
                 std::lock_guard<std::mutex> lt(_tablets_channels_lock);
                 _tablets_channels.insert({index_id, channel});

@@ -28,10 +28,6 @@
 #include <string>
 #include <utility>
 
-#include "cloud/cloud_storage_engine.h"
-#include "cloud/cloud_tablet.h"
-#include "cloud/cloud_tablet_mgr.h"
-#include "cloud/config.h"
 #include "common/status.h"
 #include "exec/schema_scanner.h"
 #include "exec/schema_scanner/schema_scanner_helper.h"
@@ -85,13 +81,13 @@ Status SchemaTabletsScanner::start(RuntimeState* state) {
 }
 
 Status SchemaTabletsScanner::_get_all_tablets() {
-    if (config::is_cloud_mode()) {
-        auto tablets =
-                ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_mgr().get_all_tablet();
-        std::ranges::for_each(tablets, [&](auto& tablet) {
-            _tablets.push_back(std::static_pointer_cast<BaseTablet>(tablet));
-        });
-    } else {
+    // if (config::is_cloud_mode()) {
+    //     auto tablets =
+    //             ExecEnv::GetInstance()->storage_engine().to_cloud().tablet_mgr().get_all_tablet();
+    //     std::ranges::for_each(tablets, [&](auto& tablet) {
+    //         _tablets.push_back(std::static_pointer_cast<BaseTablet>(tablet));
+    //     });
+    // } else {
         auto tablets = ExecEnv::GetInstance()
                                ->storage_engine()
                                .to_local()
@@ -100,7 +96,7 @@ Status SchemaTabletsScanner::_get_all_tablets() {
         std::ranges::for_each(tablets, [&](auto& tablet) {
             _tablets.push_back(std::static_pointer_cast<BaseTablet>(tablet));
         });
-    }
+    // }
     return Status::OK();
 }
 
@@ -186,9 +182,9 @@ Status SchemaTabletsScanner::_fill_block_impl(vectorized::Block* block) {
         SchemaScannerHelper::insert_bool_value(
                 13,
                 [&tablet]() {
-                    if (config::is_cloud_mode()) {
-                        return true;
-                    }
+                    // if (config::is_cloud_mode()) {
+                    //     return true;
+                    // }
                     return std::static_pointer_cast<Tablet>(tablet)->is_used();
                 }(),
                 block);

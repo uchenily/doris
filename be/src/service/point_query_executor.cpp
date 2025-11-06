@@ -31,8 +31,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include "cloud/cloud_tablet.h"
-#include "cloud/config.h"
 #include "common/cast_set.h"
 #include "common/consts.h"
 #include "common/status.h"
@@ -409,12 +407,12 @@ Status PointQueryExecutor::_lookup_row_key() {
     SCOPED_TIMER(&_profile_metrics.lookup_key_ns);
     // 2. lookup row location
     Status st;
-    if (_version >= 0) {
-        CHECK(config::is_cloud_mode()) << "Only cloud mode support snapshot read at present";
-        SyncOptions options;
-        options.query_version = _version;
-        RETURN_IF_ERROR(std::dynamic_pointer_cast<CloudTablet>(_tablet)->sync_rowsets(options));
-    }
+    // if (_version >= 0) {
+    //     CHECK(config::is_cloud_mode()) << "Only cloud mode support snapshot read at present";
+    //     SyncOptions options;
+    //     options.query_version = _version;
+    //     RETURN_IF_ERROR(std::dynamic_pointer_cast<CloudTablet>(_tablet)->sync_rowsets(options));
+    // }
     std::vector<RowsetSharedPtr> specified_rowsets;
     {
         std::shared_lock rlock(_tablet->get_header_lock());

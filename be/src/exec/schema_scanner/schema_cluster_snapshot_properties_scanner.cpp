@@ -19,8 +19,6 @@
 
 #include <cstdint>
 
-#include "cloud/cloud_meta_mgr.h"
-#include "cloud/cloud_storage_engine.h"
 #include "exec/schema_scanner/schema_helper.h"
 #include "exec/schema_scanner/schema_scanner_helper.h"
 #include "olap/storage_engine.h"
@@ -50,12 +48,12 @@ Status SchemaClusterSnapshotPropertiesScanner::start(RuntimeState* state) {
     if (!_is_init) {
         return Status::InternalError("used before initialized.");
     }
-    if (!config::is_cloud_mode()) {
+    // if (!config::is_cloud_mode()) {
         return Status::InternalError("only support cloud mode");
-    }
+    // }
 
-    return ExecEnv::GetInstance()->storage_engine().to_cloud().meta_mgr().get_snapshot_properties(
-            _switch_status, _max_reserved_snapshots, _snapshot_interval_seconds);
+    // return ExecEnv::GetInstance()->storage_engine().to_cloud().meta_mgr().get_snapshot_properties(
+    //         _switch_status, _max_reserved_snapshots, _snapshot_interval_seconds);
 }
 
 Status SchemaClusterSnapshotPropertiesScanner::get_next_block_internal(vectorized::Block* block,
@@ -73,9 +71,10 @@ Status SchemaClusterSnapshotPropertiesScanner::get_next_block_internal(vectorize
 
 Status SchemaClusterSnapshotPropertiesScanner::_fill_block_impl(vectorized::Block* block) {
     SCOPED_TIMER(_fill_block_timer);
-    bool auto_snapshot_enabled =
-            _switch_status == cloud::SnapshotSwitchStatus::SNAPSHOT_SWITCH_ON &&
-            _max_reserved_snapshots > 0;
+    bool auto_snapshot_enabled = false;
+    // bool auto_snapshot_enabled =
+    //         _switch_status == cloud::SnapshotSwitchStatus::SNAPSHOT_SWITCH_ON &&
+    //         _max_reserved_snapshots > 0;
     std::string_view snapshot_enable_status;
     switch (_switch_status) {
     case cloud::SnapshotSwitchStatus::SNAPSHOT_SWITCH_ON:

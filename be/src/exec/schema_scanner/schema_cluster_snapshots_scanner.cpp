@@ -20,8 +20,6 @@
 #include <cstdint>
 #include <string>
 
-#include "cloud/cloud_meta_mgr.h"
-#include "cloud/cloud_storage_engine.h"
 #include "common/status.h"
 #include "exec/schema_scanner/schema_helper.h"
 #include "olap/storage_engine.h"
@@ -60,11 +58,11 @@ Status SchemaClusterSnapshotsScanner::start(RuntimeState* state) {
     if (!_is_init) {
         return Status::InternalError("used before initialized.");
     }
-    if (!config::is_cloud_mode()) {
+    // if (!config::is_cloud_mode()) {
         return Status::InternalError("only support cloud mode");
-    }
+    // }
 
-    return ExecEnv::GetInstance()->storage_engine().to_cloud().meta_mgr().list_snapshot(_snapshots);
+    // return ExecEnv::GetInstance()->storage_engine().to_cloud().meta_mgr().list_snapshot(_snapshots);
 }
 
 Status SchemaClusterSnapshotsScanner::get_next_block_internal(vectorized::Block* block, bool* eos) {

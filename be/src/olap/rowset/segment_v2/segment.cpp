@@ -25,7 +25,6 @@
 #include <memory>
 #include <utility>
 
-#include "cloud/config.h"
 #include "common/exception.h"
 #include "common/logging.h"
 #include "common/status.h"
@@ -88,14 +87,14 @@ Status Segment::open(io::FileSystemSPtr fs, const std::string& path, int64_t tab
     auto s = _open(fs, path, segment_id, rowset_id, tablet_schema, reader_options, output,
                    idx_file_info, stats);
     if (!s.ok()) {
-        if (!config::is_cloud_mode()) {
+        // if (!config::is_cloud_mode()) {
             auto res = ExecEnv::get_tablet(tablet_id);
             TabletSharedPtr tablet =
                     res.has_value() ? std::dynamic_pointer_cast<Tablet>(res.value()) : nullptr;
             if (tablet) {
                 tablet->report_error(s);
             }
-        }
+        // }
     }
 
     return s;
@@ -349,7 +348,7 @@ Status Segment::new_iterator(SchemaSPtr schema, const StorageReadOptions& read_o
 
 Status Segment::_write_error_file(size_t file_size, size_t offset, size_t bytes_read, char* data,
                                   io::IOContext& io_ctx) {
-    if (!config::enbale_dump_error_file || !doris::config::is_cloud_mode()) {
+    if (!config::enbale_dump_error_file) {
         return Status::OK();
     }
 
