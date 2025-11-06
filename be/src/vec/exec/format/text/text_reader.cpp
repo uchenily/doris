@@ -1,4 +1,4 @@
-﻿// Licensed to the Apache Software Foundation (ASF) under one
+// Licensed to the Apache Software Foundation (ASF) under one
 // or more contributor license agreements.  See the NOTICE file
 // distributed with this work for additional information
 // regarding copyright ownership.  The ASF licenses this file
@@ -30,7 +30,6 @@
 #include "io/file_factory.h"
 #include "io/fs/buffered_reader.h"
 #include "io/fs/file_reader.h"
-#include "io/fs/s3_file_reader.h"
 #include "runtime/descriptors.h"
 #include "runtime/runtime_state.h"
 #include "vec/core/block.h"

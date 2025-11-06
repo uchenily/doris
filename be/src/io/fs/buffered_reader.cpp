@@ -851,21 +851,21 @@ Result<io::FileReaderSPtr> DelegateReader::create_file_reader(
     return FileFactory::create_file_reader(system_properties, file_description, reader_options,
                                            profile)
             .transform([&](auto&& reader) -> io::FileReaderSPtr {
-                if (reader->size() < config::in_memory_file_size &&
-                    typeid_cast<io::S3FileReader*>(reader.get())) {
-                    return std::make_shared<InMemoryFileReader>(std::move(reader));
-                }
+                // if (reader->size() < config::in_memory_file_size &&
+                //     typeid_cast<io::S3FileReader*>(reader.get())) {
+                //     return std::make_shared<InMemoryFileReader>(std::move(reader));
+                // }
 
                 if (access_mode == AccessMode::SEQUENTIAL) {
                     bool is_thread_safe = false;
-                    if (typeid_cast<io::S3FileReader*>(reader.get())) {
-                        is_thread_safe = true;
-                    } else if (auto* cached_reader =
-                                       typeid_cast<io::CachedRemoteFileReader*>(reader.get());
-                               cached_reader &&
-                               typeid_cast<io::S3FileReader*>(cached_reader->get_remote_reader())) {
-                        is_thread_safe = true;
-                    }
+                    // if (typeid_cast<io::S3FileReader*>(reader.get())) {
+                    //     is_thread_safe = true;
+                    // } else if (auto* cached_reader =
+                    //                    typeid_cast<io::CachedRemoteFileReader*>(reader.get());
+                    //            cached_reader &&
+                    //            typeid_cast<io::S3FileReader*>(cached_reader->get_remote_reader())) {
+                    //     is_thread_safe = true;
+                    // }
                     if (is_thread_safe) {
                         // PrefetchBufferedReader needs thread-safe reader to prefetch data concurrently.
                         return std::make_shared<io::PrefetchBufferedReader>(

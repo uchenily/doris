@@ -35,7 +35,6 @@
 #include "common/logging.h"
 #include "common/object_pool.h"
 #include "common/status.h"
-#include "io/fs/s3_file_system.h"
 #include "olap/id_manager.h"
 #include "olap/storage_engine.h"
 #include "pipeline/exec/operator.h"
@@ -320,18 +319,18 @@ Status RuntimeState::cancel_reason() const {
 const int64_t MAX_ERROR_NUM = 50;
 
 Status RuntimeState::create_error_log_file() {
-    if (config::save_load_error_log_to_s3 && config::is_cloud_mode()) {
-        _s3_error_fs = std::dynamic_pointer_cast<io::S3FileSystem>(
-                ExecEnv::GetInstance()->storage_engine().to_cloud().latest_fs());
-        if (_s3_error_fs) {
-            std::stringstream ss;
-            // https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_err_packet.html
-            // shorten the path as much as possible to prevent the length of the presigned URL from
-            // exceeding the MySQL error packet size limit
-            ss << "error_log/" << std::hex << _fragment_instance_id.lo;
-            _s3_error_log_file_path = ss.str();
-        }
-    }
+    // if (config::save_load_error_log_to_s3 && config::is_cloud_mode()) {
+    //     _s3_error_fs = std::dynamic_pointer_cast<io::S3FileSystem>(
+    //             ExecEnv::GetInstance()->storage_engine().to_cloud().latest_fs());
+    //     if (_s3_error_fs) {
+    //         std::stringstream ss;
+    //         // https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_basic_err_packet.html
+    //         // shorten the path as much as possible to prevent the length of the presigned URL from
+    //         // exceeding the MySQL error packet size limit
+    //         ss << "error_log/" << std::hex << _fragment_instance_id.lo;
+    //         _s3_error_log_file_path = ss.str();
+    //     }
+    // }
 
     static_cast<void>(_exec_env->load_path_mgr()->get_load_error_file_name(
             _db_name, _import_label, _fragment_instance_id, &_error_log_file_path));
@@ -407,26 +406,26 @@ std::string RuntimeState::get_error_log_file_path() {
             std::this_thread::sleep_for(std::chrono::seconds(1));
         }
     });
-    std::lock_guard<std::mutex> l(_s3_error_log_file_lock);
-    if (_s3_error_fs && _error_log_file && _error_log_file->is_open()) {
-        // close error log file
-        _error_log_file->close();
-        std::string error_log_absolute_path =
-                _exec_env->load_path_mgr()->get_load_error_absolute_path(_error_log_file_path);
-        // upload error log file to s3
-        Status st = _s3_error_fs->upload(error_log_absolute_path, _s3_error_log_file_path);
-        if (!st.ok()) {
-            // upload failed and return local error log file path
-            LOG(WARNING) << "Fail to upload error file to s3, error_log_file_path="
-                         << _error_log_file_path << ", error=" << st;
-            return _error_log_file_path;
-        }
-        // expiration must be less than a week (in seconds) for presigned url
-        static const unsigned EXPIRATION_SECONDS = 7 * 24 * 60 * 60 - 1;
-        // We should return a public endpoint to user.
-        _error_log_file_path = _s3_error_fs->generate_presigned_url(_s3_error_log_file_path,
-                                                                    EXPIRATION_SECONDS, true);
-    }
+    // std::lock_guard<std::mutex> l(_s3_error_log_file_lock);
+    // if (_s3_error_fs && _error_log_file && _error_log_file->is_open()) {
+    //     // close error log file
+    //     _error_log_file->close();
+    //     std::string error_log_absolute_path =
+    //             _exec_env->load_path_mgr()->get_load_error_absolute_path(_error_log_file_path);
+    //     // upload error log file to s3
+    //     Status st = _s3_error_fs->upload(error_log_absolute_path, _s3_error_log_file_path);
+    //     if (!st.ok()) {
+    //         // upload failed and return local error log file path
+    //         LOG(WARNING) << "Fail to upload error file to s3, error_log_file_path="
+    //                      << _error_log_file_path << ", error=" << st;
+    //         return _error_log_file_path;
+    //     }
+    //     // expiration must be less than a week (in seconds) for presigned url
+    //     static const unsigned EXPIRATION_SECONDS = 7 * 24 * 60 * 60 - 1;
+    //     // We should return a public endpoint to user.
+    //     _error_log_file_path = _s3_error_fs->generate_presigned_url(_s3_error_log_file_path,
+    //                                                                 EXPIRATION_SECONDS, true);
+    // }
     return _error_log_file_path;
 }
 

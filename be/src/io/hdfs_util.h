@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <gen_cpp/cloud.pb.h>
 #include <bvar/bvar.h>
 
 #include <atomic>

@@ -252,13 +252,13 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
                               .set_max_threads(32)
                               .build(&_send_table_stats_thread_pool));
 
-    auto [s3_file_upload_min_threads, s3_file_upload_max_threads] =
-            get_num_threads(config::num_s3_file_upload_thread_pool_min_thread,
-                            config::num_s3_file_upload_thread_pool_max_thread);
-    static_cast<void>(ThreadPoolBuilder("S3FileUploadThreadPool")
-                              .set_min_threads(cast_set<int>(s3_file_upload_min_threads))
-                              .set_max_threads(cast_set<int>(s3_file_upload_max_threads))
-                              .build(&_s3_file_upload_thread_pool));
+    // auto [s3_file_upload_min_threads, s3_file_upload_max_threads] =
+    //         get_num_threads(config::num_s3_file_upload_thread_pool_min_thread,
+    //                         config::num_s3_file_upload_thread_pool_max_thread);
+    // static_cast<void>(ThreadPoolBuilder("S3FileUploadThreadPool")
+    //                           .set_min_threads(cast_set<int>(s3_file_upload_min_threads))
+    //                           .set_max_threads(cast_set<int>(s3_file_upload_max_threads))
+    //                           .build(&_s3_file_upload_thread_pool));
 
     // min num equal to fragment pool's min num
     // max num is useless because it will start as many as requested in the past
@@ -272,10 +272,10 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
                               .set_min_threads(cast_set<int>(config::min_nonblock_close_thread_num))
                               .set_max_threads(cast_set<int>(config::max_nonblock_close_thread_num))
                               .build(&_non_block_close_thread_pool));
-    static_cast<void>(ThreadPoolBuilder("S3FileSystemThreadPool")
-                              .set_min_threads(config::min_s3_file_system_thread_num)
-                              .set_max_threads(config::max_s3_file_system_thread_num)
-                              .build(&_s3_file_system_thread_pool));
+    // static_cast<void>(ThreadPoolBuilder("S3FileSystemThreadPool")
+    //                           .set_min_threads(config::min_s3_file_system_thread_num)
+    //                           .set_max_threads(config::max_s3_file_system_thread_num)
+    //                           .build(&_s3_file_system_thread_pool));
     RETURN_IF_ERROR(init_mem_env());
 
     // NOTE: runtime query statistics mgr could be visited by query and daemon thread
@@ -404,7 +404,7 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     init_simdjson_parser();
 
     // Make aws-sdk-cpp InitAPI and ShutdownAPI called in the same thread
-    S3ClientFactory::instance();
+    // S3ClientFactory::instance();
     return Status::OK();
 }
 
@@ -433,15 +433,15 @@ void ExecEnv::init_file_cache_factory(std::vector<doris::CachePath>& cache_paths
         }
         return;
     }
-    if (config::file_cache_each_block_size > config::s3_write_buffer_size ||
-        config::s3_write_buffer_size % config::file_cache_each_block_size != 0) {
-        LOG_FATAL(
-                "The config file_cache_each_block_size {} must less than or equal to config "
-                "s3_write_buffer_size {} and config::s3_write_buffer_size % "
-                "config::file_cache_each_block_size must be zero",
-                config::file_cache_each_block_size, config::s3_write_buffer_size);
-        exit(-1);
-    }
+    // if (config::file_cache_each_block_size > config::s3_write_buffer_size ||
+    //     config::s3_write_buffer_size % config::file_cache_each_block_size != 0) {
+    //     LOG_FATAL(
+    //             "The config file_cache_each_block_size {} must less than or equal to config "
+    //             "s3_write_buffer_size {} and config::s3_write_buffer_size % "
+    //             "config::file_cache_each_block_size must be zero",
+    //             config::file_cache_each_block_size, config::s3_write_buffer_size);
+    //     exit(-1);
+    // }
     std::unordered_set<std::string> cache_path_set;
     Status rest = doris::parse_conf_cache_paths(doris::config::file_cache_path, cache_paths);
     if (!rest) {
@@ -665,8 +665,8 @@ void ExecEnv::init_mem_tracker() {
             MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::GLOBAL, "RowIdStorageReader");
     _subcolumns_tree_tracker =
             MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::GLOBAL, "SubcolumnsTree");
-    _s3_file_buffer_tracker =
-            MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::GLOBAL, "S3FileBuffer");
+    // _s3_file_buffer_tracker =
+    //         MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::GLOBAL, "S3FileBuffer");
     _stream_load_pipe_tracker =
             MemTrackerLimiter::create_shared(MemTrackerLimiter::Type::LOAD, "StreamLoadPipe");
     _parquet_meta_tracker =
@@ -789,10 +789,10 @@ void ExecEnv::destroy() {
         _runtime_query_statistics_mgr->stop_report_thread();
     }
     SAFE_SHUTDOWN(_buffered_reader_prefetch_thread_pool);
-    SAFE_SHUTDOWN(_s3_file_upload_thread_pool);
+    // SAFE_SHUTDOWN(_s3_file_upload_thread_pool);
     SAFE_SHUTDOWN(_lazy_release_obj_pool);
     SAFE_SHUTDOWN(_non_block_close_thread_pool);
-    SAFE_SHUTDOWN(_s3_file_system_thread_pool);
+    // SAFE_SHUTDOWN(_s3_file_system_thread_pool);
     SAFE_SHUTDOWN(_send_batch_thread_pool);
     SAFE_SHUTDOWN(_send_table_stats_thread_pool);
 
@@ -846,10 +846,10 @@ void ExecEnv::destroy() {
     // TODO(zhiqiang): Maybe we should call shutdown before release thread pool?
     _lazy_release_obj_pool.reset(nullptr);
     _non_block_close_thread_pool.reset(nullptr);
-    _s3_file_system_thread_pool.reset(nullptr);
+    // _s3_file_system_thread_pool.reset(nullptr);
     _send_table_stats_thread_pool.reset(nullptr);
     _buffered_reader_prefetch_thread_pool.reset(nullptr);
-    _s3_file_upload_thread_pool.reset(nullptr);
+    // _s3_file_upload_thread_pool.reset(nullptr);
     _send_batch_thread_pool.reset(nullptr);
     _write_cooldown_meta_executors.reset(nullptr);
 

@@ -16,6 +16,7 @@
 // under the License.
 #pragma once
 
+#include <gen_cpp/cloud.pb.h>
 #include <gen_cpp/olap_file.pb.h>
 
 #include <future>
@@ -29,7 +30,6 @@
 #include "common/status.h"
 #include "olap/rowset/rowset_fwd.h"
 #include "olap/rowset/rowset_meta.h"
-#include "util/s3_util.h"
 
 namespace doris {
 #include "common/compile_check_begin.h"
@@ -51,7 +51,7 @@ class TabletStatsPB;
 class TabletIndexPB;
 
 using StorageVaultInfos = std::vector<
-        std::tuple<std::string, std::variant<S3Conf, HdfsVaultInfo>, StorageVaultPB_PathFormat>>;
+        std::tuple<std::string, std::variant<HdfsVaultInfo>, StorageVaultPB_PathFormat>>;
 
 // run tasks in bthread with concurrency and wait until all tasks done
 // it stops running tasks if there are any tasks return !ok, leaving some tasks untouched

@@ -37,9 +37,6 @@
 #include "io/fs/hdfs_file_writer.h"
 #include "io/fs/local_file_system.h"
 #include "io/fs/multi_table_pipe.h"
-#include "io/fs/s3_file_reader.h"
-#include "io/fs/s3_file_system.h"
-#include "io/fs/s3_file_writer.h"
 #include "io/fs/stream_load_pipe.h"
 #include "io/hdfs_builder.h"
 #include "io/hdfs_util.h"
@@ -47,8 +44,6 @@
 #include "runtime/runtime_state.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
 #include "runtime/stream_load/stream_load_context.h"
-#include "util/s3_uri.h"
-#include "util/s3_util.h"
 #include "util/uid_util.h"
 
 namespace doris {
@@ -109,14 +104,14 @@ Result<io::FileSystemSPtr> FileFactory::create_fs(const io::FSPropertiesRef& fs_
         return io::BrokerFileSystem::create((*fs_properties.broker_addresses)[index],
                                             *fs_properties.properties, io::FileSystem::TMP_FS_ID);
     }
-    case TFileType::FILE_S3: {
-        S3URI s3_uri(file_description.path);
-        RETURN_IF_ERROR_RESULT(s3_uri.parse());
-        S3Conf s3_conf;
-        RETURN_IF_ERROR_RESULT(S3ClientFactory::convert_properties_to_s3_conf(
-                *fs_properties.properties, s3_uri, &s3_conf));
-        return io::S3FileSystem::create(std::move(s3_conf), io::FileSystem::TMP_FS_ID);
-    }
+    // case TFileType::FILE_S3: {
+    //     S3URI s3_uri(file_description.path);
+    //     RETURN_IF_ERROR_RESULT(s3_uri.parse());
+    //     S3Conf s3_conf;
+    //     RETURN_IF_ERROR_RESULT(S3ClientFactory::convert_properties_to_s3_conf(
+    //             *fs_properties.properties, s3_uri, &s3_conf));
+    //     return io::S3FileSystem::create(std::move(s3_conf), io::FileSystem::TMP_FS_ID);
+    // }
     case TFileType::FILE_HDFS: {
         std::string fs_name = _get_fs_name(file_description);
         return io::HdfsFileSystem::create(*fs_properties.properties, fs_name,
@@ -165,17 +160,17 @@ Result<io::FileWriterPtr> FileFactory::create_file_writer(
         LOG_INFO("select broker: {} for file {}", broker_addresses[index].hostname, path);
         return io::BrokerFileWriter::create(env, broker_addresses[index], properties, path);
     }
-    case TFileType::FILE_S3: {
-        S3URI s3_uri(path);
-        RETURN_IF_ERROR_RESULT(s3_uri.parse());
-        S3Conf s3_conf;
-        RETURN_IF_ERROR_RESULT(
-                S3ClientFactory::convert_properties_to_s3_conf(properties, s3_uri, &s3_conf));
-        auto client = std::make_shared<io::ObjClientHolder>(std::move(s3_conf.client_conf));
-        RETURN_IF_ERROR_RESULT(client->init());
-        return std::make_unique<io::S3FileWriter>(std::move(client), std::move(s3_conf.bucket),
-                                                  s3_uri.get_key(), &options);
-    }
+    // case TFileType::FILE_S3: {
+    //     S3URI s3_uri(path);
+    //     RETURN_IF_ERROR_RESULT(s3_uri.parse());
+    //     S3Conf s3_conf;
+    //     RETURN_IF_ERROR_RESULT(
+    //             S3ClientFactory::convert_properties_to_s3_conf(properties, s3_uri, &s3_conf));
+    //     auto client = std::make_shared<io::ObjClientHolder>(std::move(s3_conf.client_conf));
+    //     RETURN_IF_ERROR_RESULT(client->init());
+    //     return std::make_unique<io::S3FileWriter>(std::move(client), std::move(s3_conf.bucket),
+    //                                               s3_uri.get_key(), &options);
+    // }
     case TFileType::FILE_HDFS: {
         THdfsParams hdfs_params = parse_properties(properties);
         std::shared_ptr<io::HdfsHandler> handler;
@@ -201,20 +196,20 @@ Result<io::FileReaderSPtr> FileFactory::create_file_reader(
                 file_description.path, &file_reader, &reader_options));
         return file_reader;
     }
-    case TFileType::FILE_S3: {
-        S3URI s3_uri(file_description.path);
-        RETURN_IF_ERROR_RESULT(s3_uri.parse());
-        S3Conf s3_conf;
-        RETURN_IF_ERROR_RESULT(S3ClientFactory::convert_properties_to_s3_conf(
-                system_properties.properties, s3_uri, &s3_conf));
-        auto client_holder = std::make_shared<io::ObjClientHolder>(s3_conf.client_conf);
-        RETURN_IF_ERROR_RESULT(client_holder->init());
-        return io::S3FileReader::create(std::move(client_holder), s3_conf.bucket, s3_uri.get_key(),
-                                        file_description.file_size, profile)
-                .and_then([&](auto&& reader) {
-                    return io::create_cached_file_reader(std::move(reader), reader_options);
-                });
-    }
+    // case TFileType::FILE_S3: {
+    //     S3URI s3_uri(file_description.path);
+    //     RETURN_IF_ERROR_RESULT(s3_uri.parse());
+    //     S3Conf s3_conf;
+    //     RETURN_IF_ERROR_RESULT(S3ClientFactory::convert_properties_to_s3_conf(
+    //             system_properties.properties, s3_uri, &s3_conf));
+    //     auto client_holder = std::make_shared<io::ObjClientHolder>(s3_conf.client_conf);
+    //     RETURN_IF_ERROR_RESULT(client_holder->init());
+    //     return io::S3FileReader::create(std::move(client_holder), s3_conf.bucket, s3_uri.get_key(),
+    //                                     file_description.file_size, profile)
+    //             .and_then([&](auto&& reader) {
+    //                 return io::create_cached_file_reader(std::move(reader), reader_options);
+    //             });
+    // }
     case TFileType::FILE_HDFS: {
         std::shared_ptr<io::HdfsHandler> handler;
         // FIXME(plat1ko): Explain the difference between `system_properties.hdfs_params.fs_name`

@@ -49,7 +49,6 @@
 #include "common/config.h"
 #include "common/logging.h"
 #include "common/status.h"
-#include "io/fs/connectivity/storage_connectivity_tester.h"
 #include "io/fs/local_file_system.h"
 #include "olap/olap_common.h"
 #include "olap/olap_define.h"
@@ -1295,7 +1294,8 @@ void BaseBackendService::get_dictionary_status(TDictionaryStatusList& result,
 
 void BaseBackendService::test_storage_connectivity(TTestStorageConnectivityResponse& response,
                                                    const TTestStorageConnectivityRequest& request) {
-    Status status = io::StorageConnectivityTester::test(request.type, request.properties);
+    // Status status = io::StorageConnectivityTester::test(request.type, request.properties);
+    Status status;
     response.__set_status(status.to_thrift());
 }
 

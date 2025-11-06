@@ -43,7 +43,6 @@
 #include "common/factory_creator.h"
 #include "common/status.h"
 #include "io/fs/file_system.h"
-#include "io/fs/s3_file_system.h"
 #include "runtime/task_execution_context.h"
 #include "runtime/workload_group/workload_group.h"
 #include "util/debug_util.h"
@@ -824,12 +823,6 @@ private:
 
     // prohibit copies
     RuntimeState(const RuntimeState&);
-
-    // save error log to s3
-    std::shared_ptr<io::S3FileSystem> _s3_error_fs;
-    // error file path on s3, ${bucket}/${prefix}/error_log/${label}_${fragment_instance_id}
-    std::string _s3_error_log_file_path;
-    std::mutex _s3_error_log_file_lock;
 
     // used for encoding the global lazy materialize
     std::shared_ptr<IdFileMap> _id_file_map = nullptr;

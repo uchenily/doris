@@ -51,7 +51,6 @@
 #include "io/cache/file_cache_common.h"
 #include "io/fs/file_system.h"
 #include "io/fs/hdfs_file_system.h"
-#include "io/fs/s3_file_system.h"
 #include "io/hdfs_util.h"
 #include "io/io_common.h"
 #include "olap/cumulative_compaction_policy.h"
@@ -107,45 +106,30 @@ CloudStorageEngine::~CloudStorageEngine() {
     stop();
 }
 
-static Status vault_process_error(std::string_view id,
-                                  std::variant<S3Conf, cloud::HdfsVaultInfo>& vault, Status err) {
-    std::stringstream ss;
-    std::visit(
-            [&]<typename T>(T& val) {
-                if constexpr (std::is_same_v<T, S3Conf>) {
-                    ss << val.to_string();
-                } else if constexpr (std::is_same_v<T, cloud::HdfsVaultInfo>) {
-                    val.SerializeToOstream(&ss);
-                }
-            },
-            vault);
-    return Status::IOError("Invalid vault, id {}, err {}, detail conf {}", id, err, ss.str());
-}
-
 struct VaultCreateFSVisitor {
     VaultCreateFSVisitor(const std::string& id, const cloud::StorageVaultPB_PathFormat& path_format,
                          bool check_fs)
             : id(id), path_format(path_format), check_fs(check_fs) {}
-    Status operator()(const S3Conf& s3_conf) const {
-        LOG(INFO) << "get new s3 info: " << s3_conf.to_string() << " resource_id=" << id
-                  << " check_fs: " << check_fs;
-
-        auto fs = DORIS_TRY(io::S3FileSystem::create(s3_conf, id));
-        if (check_fs && !s3_conf.client_conf.role_arn.empty()) {
-            bool res = false;
-            // just check connectivity, not care object if exist
-            auto st = fs->exists("not_exist_object", &res);
-            if (!st.ok()) {
-                LOG(FATAL) << "failed to check s3 fs, resource_id: " << id << " st: " << st
-                           << "s3_conf: " << s3_conf.to_string()
-                           << "add enable_check_storage_vault=false to be.conf to skip the check";
-            }
-        }
-
-        put_storage_resource(id, {std::move(fs), path_format}, 0);
-        LOG_INFO("successfully create s3 vault, vault id {}", id);
-        return Status::OK();
-    }
+    // Status operator()(const S3Conf& s3_conf) const {
+    //     LOG(INFO) << "get new s3 info: " << s3_conf.to_string() << " resource_id=" << id
+    //               << " check_fs: " << check_fs;
+    //
+    //     auto fs = DORIS_TRY(io::S3FileSystem::create(s3_conf, id));
+    //     if (check_fs && !s3_conf.client_conf.role_arn.empty()) {
+    //         bool res = false;
+    //         // just check connectivity, not care object if exist
+    //         auto st = fs->exists("not_exist_object", &res);
+    //         if (!st.ok()) {
+    //             LOG(FATAL) << "failed to check s3 fs, resource_id: " << id << " st: " << st
+    //                        << "s3_conf: " << s3_conf.to_string()
+    //                        << "add enable_check_storage_vault=false to be.conf to skip the check";
+    //         }
+    //     }
+    //
+    //     put_storage_resource(id, {std::move(fs), path_format}, 0);
+    //     LOG_INFO("successfully create s3 vault, vault id {}", id);
+    //     return Status::OK();
+    // }
 
     // TODO(ByteYue): Make sure enable_java_support is on
     Status operator()(const cloud::HdfsVaultInfo& vault) const {
@@ -167,16 +151,16 @@ struct RefreshFSVaultVisitor {
                           const cloud::StorageVaultPB_PathFormat& path_format)
             : id(id), fs(std::move(fs)), path_format(path_format) {}
 
-    Status operator()(const S3Conf& s3_conf) const {
-        DCHECK_EQ(fs->type(), io::FileSystemType::S3) << id;
-        auto s3_fs = std::static_pointer_cast<io::S3FileSystem>(fs);
-        auto client_holder = s3_fs->client_holder();
-        auto st = client_holder->reset(s3_conf.client_conf);
-        if (!st.ok()) {
-            LOG(WARNING) << "failed to update s3 fs, resource_id=" << id << ": " << st;
-        }
-        return st;
-    }
+    // Status operator()(const S3Conf& s3_conf) const {
+    //     DCHECK_EQ(fs->type(), io::FileSystemType::S3) << id;
+    //     auto s3_fs = std::static_pointer_cast<io::S3FileSystem>(fs);
+    //     auto client_holder = s3_fs->client_holder();
+    //     auto st = client_holder->reset(s3_conf.client_conf);
+    //     if (!st.ok()) {
+    //         LOG(WARNING) << "failed to update s3 fs, resource_id=" << id << ": " << st;
+    //     }
+    //     return st;
+    // }
 
     Status operator()(const cloud::HdfsVaultInfo& vault) const {
         auto hdfs_params = io::to_hdfs_params(vault);
@@ -286,11 +270,11 @@ Result<BaseTabletSPtr> CloudStorageEngine::get_tablet(int64_t tablet_id,
 }
 
 Status CloudStorageEngine::start_bg_threads(std::shared_ptr<WorkloadGroup> wg_sptr) {
-    RETURN_IF_ERROR(Thread::create(
-            "CloudStorageEngine", "refresh_s3_info_thread",
-            [this]() { this->_refresh_storage_vault_info_thread_callback(); },
-            &_bg_threads.emplace_back()));
-    LOG(INFO) << "refresh s3 info thread started";
+    // RETURN_IF_ERROR(Thread::create(
+    //         "CloudStorageEngine", "refresh_s3_info_thread",
+    //         [this]() { this->_refresh_storage_vault_info_thread_callback(); },
+    //         &_bg_threads.emplace_back()));
+    // LOG(INFO) << "refresh s3 info thread started";
 
     RETURN_IF_ERROR(Thread::create(
             "CloudStorageEngine", "vacuum_stale_rowsets_thread",
@@ -387,9 +371,9 @@ void CloudStorageEngine::sync_storage_vault() {
                                      vault_info)
                         : std::visit(RefreshFSVaultVisitor {id, std::move(fs), path_format},
                                      vault_info);
-        if (!status.ok()) [[unlikely]] {
-            LOG(WARNING) << vault_process_error(id, vault_info, std::move(st));
-        }
+        // if (!status.ok()) [[unlikely]] {
+        //     LOG(WARNING) << vault_process_error(id, vault_info, std::move(st));
+        // }
     }
 
     if (auto& id = std::get<0>(vault_infos.back());
@@ -400,10 +384,10 @@ void CloudStorageEngine::sync_storage_vault() {
 
 // We should enable_java_support if we want to use hdfs vault
 void CloudStorageEngine::_refresh_storage_vault_info_thread_callback() {
-    while (!_stop_background_threads_latch.wait_for(
-            std::chrono::seconds(config::refresh_s3_info_interval_s))) {
-        sync_storage_vault();
-    }
+    // while (!_stop_background_threads_latch.wait_for(
+    //         std::chrono::seconds(config::refresh_s3_info_interval_s))) {
+    //     sync_storage_vault();
+    // }
 }
 
 void CloudStorageEngine::_vacuum_stale_rowsets_thread_callback() {

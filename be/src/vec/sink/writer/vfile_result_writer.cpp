@@ -36,7 +36,6 @@
 #include "io/fs/file_writer.h"
 #include "io/fs/hdfs_file_system.h"
 #include "io/fs/local_file_system.h"
-#include "io/fs/s3_file_system.h"
 #include "io/hdfs_builder.h"
 #include "pipeline/exec/result_sink_operator.h"
 #include "runtime/decimalv2_value.h"
@@ -48,8 +47,6 @@
 #include "runtime/runtime_state.h"
 #include "service/backend_options.h"
 #include "util/mysql_row_buffer.h"
-#include "util/s3_uri.h"
-#include "util/s3_util.h"
 #include "util/uid_util.h"
 #include "vec/columns/column_string.h"
 #include "vec/columns/column_vector.h"
@@ -424,16 +421,16 @@ Status VFileResultWriter::_delete_dir() {
                                                        io::FileSystem::TMP_FS_ID, nullptr));
         return fs->delete_directory(dir);
     }
-    case TStorageBackendType::S3: {
-        S3URI s3_uri(dir);
-        RETURN_IF_ERROR(s3_uri.parse());
-        S3Conf s3_conf;
-        std::shared_ptr<io::S3FileSystem> s3_fs = nullptr;
-        RETURN_IF_ERROR(S3ClientFactory::convert_properties_to_s3_conf(
-                _file_opts->broker_properties, s3_uri, &s3_conf));
-        auto fs = DORIS_TRY(io::S3FileSystem::create(s3_conf, io::FileSystem::TMP_FS_ID));
-        return fs->delete_directory(dir);
-    }
+    // case TStorageBackendType::S3: {
+    //     S3URI s3_uri(dir);
+    //     RETURN_IF_ERROR(s3_uri.parse());
+    //     S3Conf s3_conf;
+    //     std::shared_ptr<io::S3FileSystem> s3_fs = nullptr;
+    //     RETURN_IF_ERROR(S3ClientFactory::convert_properties_to_s3_conf(
+    //             _file_opts->broker_properties, s3_uri, &s3_conf));
+    //     auto fs = DORIS_TRY(io::S3FileSystem::create(s3_conf, io::FileSystem::TMP_FS_ID));
+    //     return fs->delete_directory(dir);
+    // }
     default:
         return Status::NotSupported("Unsupported storage type: {}", std::to_string(_storage_type));
     }

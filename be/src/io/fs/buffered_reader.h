@@ -33,7 +33,6 @@
 #include "io/fs/broker_file_reader.h"
 #include "io/fs/file_reader.h"
 #include "io/fs/path.h"
-#include "io/fs/s3_file_reader.h"
 #include "olap/olap_define.h"
 #include "util/runtime_profile.h"
 #include "util/slice.h"
@@ -286,7 +285,8 @@ public:
         _range_cached_data.resize(random_access_ranges.size());
         _size = _reader->size();
         _remaining = TOTAL_BUFFER_SIZE;
-        _is_oss = typeid_cast<io::S3FileReader*>(_reader.get()) != nullptr;
+        // _is_oss = typeid_cast<io::S3FileReader*>(_reader.get()) != nullptr;
+        _is_oss = false;
         _max_amplified_ratio = config::max_amplified_read_ratio;
         // Equivalent min size of each IO that can reach the maximum storage speed limit:
         // 1MB for oss, 8KB for hdfs
