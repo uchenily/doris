@@ -574,13 +574,13 @@ Status PInternalService::_exec_plan_fragment_impl(
         }
 
         for (const TPipelineFragmentParams& fragment : fragment_list) {
-            if (cb) {
-                RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
-                        fragment, QuerySource::INTERNAL_FRONTEND, cb, t_request));
-            } else {
+            // if (cb) {
+            //     RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
+            //             fragment, QuerySource::INTERNAL_FRONTEND, cb, t_request));
+            // } else {
                 RETURN_IF_ERROR(_exec_env->fragment_mgr()->exec_plan_fragment(
                         fragment, QuerySource::INTERNAL_FRONTEND, t_request));
-            }
+            // }
         }
         timer.stop();
         double cost_secs = static_cast<double>(timer.elapsed_time()) / 1000000000ULL;
