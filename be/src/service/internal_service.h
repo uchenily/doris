@@ -177,16 +177,6 @@ public:
     void glob(google::protobuf::RpcController* controller, const PGlobRequest* request,
               PGlobResponse* response, google::protobuf::Closure* done) override;
 
-    void group_commit_insert(google::protobuf::RpcController* controller,
-                             const PGroupCommitInsertRequest* request,
-                             PGroupCommitInsertResponse* response,
-                             google::protobuf::Closure* done) override;
-
-    void get_wal_queue_size(google::protobuf::RpcController* controller,
-                            const PGetWalQueueSizeRequest* request,
-                            PGetWalQueueSizeResponse* response,
-                            google::protobuf::Closure* done) override;
-
     void multiget_data(google::protobuf::RpcController* controller, const PMultiGetRequest* request,
                        PMultiGetResponse* response, google::protobuf::Closure* done) override;
 

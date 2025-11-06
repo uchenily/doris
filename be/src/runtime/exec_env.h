@@ -129,7 +129,6 @@ class CacheManager;
 class IdManager;
 class ProcessProfile;
 class HeapProfiler;
-class WalManager;
 class DNSCache;
 class IndexPolicyMgr;
 class DeleteBitmapAggCache;
@@ -278,7 +277,6 @@ public:
     vectorized::ScannerScheduler* scanner_scheduler() { return _scanner_scheduler; }
     FileMetaCache* file_meta_cache() { return _file_meta_cache; }
     MemTableMemoryLimiter* memtable_memory_limiter() { return _memtable_memory_limiter.get(); }
-    WalManager* wal_mgr() { return _wal_manager.get(); }
     DNSCache* dns_cache() { return _dns_cache; }
     WriteCooldownMetaExecutors* write_cooldown_meta_executors() {
         return _write_cooldown_meta_executors.get();
@@ -318,8 +316,6 @@ public:
     void set_routine_load_task_executor(RoutineLoadTaskExecutor* r) {
         this->_routine_load_task_executor = r;
     }
-    void set_wal_mgr(std::unique_ptr<WalManager>&& wm);
-    void clear_wal_mgr();
 
     void set_write_cooldown_meta_executors();
     static void set_tracking_memory(bool tracking_memory) {
@@ -491,7 +487,6 @@ private:
     std::unique_ptr<MemTableMemoryLimiter> _memtable_memory_limiter;
     std::unique_ptr<LoadStreamMapPool> _load_stream_map_pool;
     std::unique_ptr<vectorized::DeltaWriterV2Pool> _delta_writer_v2_pool;
-    std::unique_ptr<WalManager> _wal_manager;
     DNSCache* _dns_cache = nullptr;
     std::unique_ptr<WriteCooldownMetaExecutors> _write_cooldown_meta_executors;
 

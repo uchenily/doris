@@ -57,7 +57,6 @@
 #include "olap/tablet_column_object_pool.h"
 #include "olap/tablet_meta.h"
 #include "olap/tablet_schema_cache.h"
-#include "olap/wal/wal_manager.h"
 #include "pipeline/pipeline_tracing.h"
 #include "pipeline/query_cache/query_cache.h"
 #include "pipeline/task_queue.h"
@@ -68,7 +67,6 @@
 #include "runtime/exec_env.h"
 #include "runtime/external_scan_context_mgr.h"
 #include "runtime/fragment_mgr.h"
-#include "runtime/group_commit_mgr.h"
 #include "runtime/heartbeat_flags.h"
 #include "runtime/index_policy/index_policy_mgr.h"
 #include "runtime/load_channel_mgr.h"
@@ -319,11 +317,9 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
     _routine_load_task_executor = new RoutineLoadTaskExecutor(this);
     RETURN_IF_ERROR(_routine_load_task_executor->init(MemInfo::mem_limit()));
     _small_file_mgr = new SmallFileMgr(this, config::small_file_dir);
-    _group_commit_mgr = new GroupCommitMgr(this);
     _memtable_memory_limiter = std::make_unique<MemTableMemoryLimiter>();
     _load_stream_map_pool = std::make_unique<LoadStreamMapPool>();
     _delta_writer_v2_pool = std::make_unique<vectorized::DeltaWriterV2Pool>();
-    _wal_manager = WalManager::create_unique(this, config::group_commit_wal_path);
     _dns_cache = new DNSCache();
     _write_cooldown_meta_executors = std::make_unique<WriteCooldownMetaExecutors>();
     // _spill_stream_mgr = new vectorized::SpillStreamManager(std::move(spill_store_map));
@@ -348,7 +344,6 @@ Status ExecEnv::_init(const std::vector<StorePath>& store_paths,
 
     RETURN_IF_ERROR(_memtable_memory_limiter->init(MemInfo::mem_limit()));
     RETURN_IF_ERROR(_load_channel_mgr->init(MemInfo::mem_limit()));
-    RETURN_IF_ERROR(_wal_manager->init());
     _heartbeat_flags = new HeartbeatFlags();
 
     _tablet_schema_cache =
@@ -728,12 +723,6 @@ void ExecEnv::clear_stream_load_executor() {
     this->_stream_load_executor.reset();
 }
 
-void ExecEnv::set_wal_mgr(std::unique_ptr<WalManager>&& wm) {
-    this->_wal_manager = std::move(wm);
-}
-void ExecEnv::clear_wal_mgr() {
-    this->_wal_manager.reset();
-}
 #endif
 // TODO(zhiqiang): Need refactor all thread pool. Each thread pool must have a Stop method.
 // We need to stop all threads before releasing resource.
@@ -745,14 +734,11 @@ void ExecEnv::destroy() {
     // Memory barrier to prevent other threads from accessing destructed resources
     _s_ready = false;
 
-    SAFE_STOP(_wal_manager);
-    _wal_manager.reset();
     SAFE_STOP(_load_channel_mgr);
     SAFE_STOP(_scanner_scheduler);
     SAFE_STOP(_broker_mgr);
     SAFE_STOP(_load_path_mgr);
     SAFE_STOP(_result_mgr);
-    SAFE_STOP(_group_commit_mgr);
     // _routine_load_task_executor should be stopped before _new_load_stream_mgr.
     SAFE_STOP(_routine_load_task_executor);
     // stop workload scheduler
@@ -819,7 +805,6 @@ void ExecEnv::destroy() {
     SAFE_DELETE(_load_path_mgr);
     SAFE_DELETE(_result_mgr);
     SAFE_DELETE(_file_meta_cache);
-    SAFE_DELETE(_group_commit_mgr);
     SAFE_DELETE(_routine_load_task_executor);
     // _stream_load_executor
     SAFE_DELETE(_function_client_cache);

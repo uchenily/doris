@@ -77,7 +77,6 @@
 #include "olap/tablet_manager.h"
 #include "olap/tablet_schema.h"
 #include "olap/txn_manager.h"
-#include "olap/wal/wal_manager.h"
 #include "runtime/cache/result_cache.h"
 #include "runtime/descriptors.h"
 #include "runtime/exec_env.h"
@@ -2181,111 +2180,6 @@ void PInternalService::glob(google::protobuf::RpcController* controller,
     if (!ret) {
         offer_failed(response, done, _heavy_work_pool);
         return;
-    }
-}
-
-void PInternalService::group_commit_insert(google::protobuf::RpcController* controller,
-                                           const PGroupCommitInsertRequest* request,
-                                           PGroupCommitInsertResponse* response,
-                                           google::protobuf::Closure* done) {
-//     TUniqueId load_id;
-//     load_id.__set_hi(request->load_id().hi());
-//     load_id.__set_lo(request->load_id().lo());
-//     std::shared_ptr<std::mutex> lock = std::make_shared<std::mutex>();
-//     std::shared_ptr<bool> is_done = std::make_shared<bool>(false);
-//     bool ret = _heavy_work_pool.try_offer([this, request, response, done, load_id, lock,
-//                                            is_done]() {
-//         brpc::ClosureGuard closure_guard(done);
-//         std::shared_ptr<StreamLoadContext> ctx = std::make_shared<StreamLoadContext>(_exec_env);
-//         auto pipe = std::make_shared<io::StreamLoadPipe>(
-//                 io::kMaxPipeBufferedBytes /* max_buffered_bytes */, 64 * 1024 /* min_chunk_size */,
-//                 -1 /* total_length */, true /* use_proto */);
-//         ctx->pipe = pipe;
-//         Status st = _exec_env->new_load_stream_mgr()->put(load_id, ctx);
-//         if (st.ok()) {
-//             try {
-//                 st = _exec_plan_fragment_impl(
-//                         request->exec_plan_fragment_request().request(),
-//                         request->exec_plan_fragment_request().version(),
-//                         request->exec_plan_fragment_request().compact(),
-//                         [&, response, done, load_id, lock, is_done](RuntimeState* state,
-//                                                                     Status* status) {
-//                             std::lock_guard<std::mutex> lock1(*lock);
-//                             if (*is_done) {
-//                                 return;
-//                             }
-//                             *is_done = true;
-//                             brpc::ClosureGuard cb_closure_guard(done);
-//                             response->set_label(state->import_label());
-//                             response->set_txn_id(state->wal_id());
-//                             response->set_loaded_rows(state->num_rows_load_success());
-//                             response->set_filtered_rows(state->num_rows_load_filtered());
-//                             status->to_protobuf(response->mutable_status());
-//                             if (!state->get_error_log_file_path().empty()) {
-//                                 response->set_error_url(
-//                                         to_load_error_http_path(state->get_error_log_file_path()));
-//                             }
-//                             if (!state->get_first_error_msg().empty()) {
-//                                 response->set_first_error_msg(state->get_first_error_msg());
-//                             }
-//                             _exec_env->new_load_stream_mgr()->remove(load_id);
-//                         });
-//             } catch (const Exception& e) {
-//                 st = e.to_status();
-//             } catch (const std::exception& e) {
-//                 st = Status::Error(ErrorCode::INTERNAL_ERROR, e.what());
-//             } catch (...) {
-//                 st = Status::Error(ErrorCode::INTERNAL_ERROR,
-//                                    "_exec_plan_fragment_impl meet unknown error");
-//             }
-//             if (!st.ok()) {
-//                 LOG(WARNING) << "exec plan fragment failed, load_id=" << print_id(load_id)
-//                              << ", errmsg=" << st;
-//                 std::lock_guard<std::mutex> lock1(*lock);
-//                 if (*is_done) {
-//                     closure_guard.release();
-//                 } else {
-//                     *is_done = true;
-//                     st.to_protobuf(response->mutable_status());
-//                     _exec_env->new_load_stream_mgr()->remove(load_id);
-//                 }
-//             } else {
-//                 closure_guard.release();
-//                 for (int i = 0; i < request->data().size(); ++i) {
-//                     std::unique_ptr<PDataRow> row(new PDataRow());
-//                     row->CopyFrom(request->data(i));
-//                     st = pipe->append(std::move(row));
-//                     if (!st.ok()) {
-//                         break;
-//                     }
-//                 }
-//                 if (st.ok()) {
-//                     static_cast<void>(pipe->finish());
-//                 }
-//             }
-//         }
-//     });
-//     if (!ret) {
-//         _exec_env->new_load_stream_mgr()->remove(load_id);
-//         offer_failed(response, done, _heavy_work_pool);
-//         return;
-//     }
-};
-
-void PInternalService::get_wal_queue_size(google::protobuf::RpcController* controller,
-                                          const PGetWalQueueSizeRequest* request,
-                                          PGetWalQueueSizeResponse* response,
-                                          google::protobuf::Closure* done) {
-    bool ret = _heavy_work_pool.try_offer([this, request, response, done]() {
-        brpc::ClosureGuard closure_guard(done);
-        Status st = Status::OK();
-        auto table_id = request->table_id();
-        auto count = _exec_env->wal_mgr()->get_wal_queue_size(table_id);
-        response->set_size(count);
-        response->mutable_status()->set_status_code(st.code());
-    });
-    if (!ret) {
-        offer_failed(response, done, _heavy_work_pool);
     }
 }
 

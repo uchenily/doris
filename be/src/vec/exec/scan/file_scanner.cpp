@@ -64,7 +64,6 @@
 #include "vec/exec/format/parquet/vparquet_reader.h"
 #include "vec/exec/format/table/iceberg_reader.h"
 #include "vec/exec/format/text/text_reader.h"
-#include "vec/exec/format/wal/wal_reader.h"
 #include "vec/exec/scan/scan_node.h"
 #include "vec/exprs/vexpr.h"
 #include "vec/exprs/vexpr_context.h"
@@ -1109,11 +1108,6 @@ Status FileScanner::_get_next_reader() {
                                                        range);
             init_status =
                     ((AvroJNIReader*)(_cur_reader.get()))->init_reader(_colname_to_value_range);
-            break;
-        }
-        case TFileFormatType::FORMAT_WAL: {
-            _cur_reader = WalReader::create_unique(_state);
-            init_status = ((WalReader*)(_cur_reader.get()))->init_reader(_output_tuple_desc);
             break;
         }
         case TFileFormatType::FORMAT_ARROW: {
