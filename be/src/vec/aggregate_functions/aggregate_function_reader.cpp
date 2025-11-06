@@ -20,11 +20,10 @@
 #include <algorithm>
 #include <string>
 
-#include "vec/aggregate_functions/aggregate_function_bitmap.h"
-#include "vec/aggregate_functions/aggregate_function_hll_union_agg.h"
+// #include "vec/aggregate_functions/aggregate_function_bitmap.h"
 #include "vec/aggregate_functions/aggregate_function_min_max.h"
-#include "vec/aggregate_functions/aggregate_function_quantile_state.h"
-#include "vec/aggregate_functions/aggregate_function_reader_first_last.h"
+// #include "vec/aggregate_functions/aggregate_function_quantile_state.h"
+// #include "vec/aggregate_functions/aggregate_function_reader_first_last.h"
 #include "vec/aggregate_functions/aggregate_function_simple_factory.h"
 #include "vec/aggregate_functions/aggregate_function_sum.h"
 #include "vec/aggregate_functions/helpers.h"
@@ -49,13 +48,13 @@ void register_aggregate_function_reader_load(AggregateFunctionSimpleFactory& fac
                                    TYPE_DECIMALV2>::creator<AggregateFunctionSumSimpleReader>);
     register_function_both("max", create_aggregate_function_single_value<AggregateFunctionMaxData>);
     register_function_both("min", create_aggregate_function_single_value<AggregateFunctionMinData>);
-    register_function_both("bitmap_union",
-                           creator_without_type::creator<
-                                   AggregateFunctionBitmapOp<AggregateFunctionBitmapUnionOp>>);
-    register_function_both("hll_union",
-                           creator_without_type::creator<AggregateFunctionHLLUnion<
-                                   AggregateFunctionHLLUnionImpl<AggregateFunctionHLLData>>>);
-    register_function_both("quantile_union", create_aggregate_function_quantile_state_union);
+    // register_function_both("bitmap_union",
+    //                        creator_without_type::creator<
+    //                                AggregateFunctionBitmapOp<AggregateFunctionBitmapUnionOp>>);
+    // register_function_both("hll_union",
+    //                        creator_without_type::creator<AggregateFunctionHLLUnion<
+    //                                AggregateFunctionHLLUnionImpl<AggregateFunctionHLLData>>>);
+    // register_function_both("quantile_union", create_aggregate_function_quantile_state_union);
 }
 
 // only replace function in load/reader do different agg operation.
@@ -63,24 +62,24 @@ void register_aggregate_function_reader_load(AggregateFunctionSimpleFactory& fac
 // 1. reader, get the first value of input data.
 // 2. load, get the last value of input data.
 void register_aggregate_function_replace_reader_load(AggregateFunctionSimpleFactory& factory) {
-    auto register_function = [&](const std::string& name, const std::string& suffix,
-                                 const AggregateFunctionCreator& creator, bool nullable) {
-        factory.register_function(name + suffix, creator, nullable);
-    };
-
-    register_function("replace", AGG_READER_SUFFIX, create_aggregate_function_first<true>, false);
-    register_function("replace", AGG_READER_SUFFIX, create_aggregate_function_first<true>, true);
-    register_function("replace", AGG_LOAD_SUFFIX, create_aggregate_function_last<false>, false);
-    register_function("replace", AGG_LOAD_SUFFIX, create_aggregate_function_last<false>, true);
-
-    register_function("replace_if_not_null", AGG_READER_SUFFIX,
-                      create_aggregate_function_first_non_null_value<true>, false);
-    register_function("replace_if_not_null", AGG_READER_SUFFIX,
-                      create_aggregate_function_first_non_null_value<true>, true);
-    register_function("replace_if_not_null", AGG_LOAD_SUFFIX,
-                      create_aggregate_function_last_non_null_value<false>, false);
-    register_function("replace_if_not_null", AGG_LOAD_SUFFIX,
-                      create_aggregate_function_last_non_null_value<false>, true);
+    // auto register_function = [&](const std::string& name, const std::string& suffix,
+    //                              const AggregateFunctionCreator& creator, bool nullable) {
+    //     factory.register_function(name + suffix, creator, nullable);
+    // };
+    //
+    // register_function("replace", AGG_READER_SUFFIX, create_aggregate_function_first<true>, false);
+    // register_function("replace", AGG_READER_SUFFIX, create_aggregate_function_first<true>, true);
+    // register_function("replace", AGG_LOAD_SUFFIX, create_aggregate_function_last<false>, false);
+    // register_function("replace", AGG_LOAD_SUFFIX, create_aggregate_function_last<false>, true);
+    //
+    // register_function("replace_if_not_null", AGG_READER_SUFFIX,
+    //                   create_aggregate_function_first_non_null_value<true>, false);
+    // register_function("replace_if_not_null", AGG_READER_SUFFIX,
+    //                   create_aggregate_function_first_non_null_value<true>, true);
+    // register_function("replace_if_not_null", AGG_LOAD_SUFFIX,
+    //                   create_aggregate_function_last_non_null_value<false>, false);
+    // register_function("replace_if_not_null", AGG_LOAD_SUFFIX,
+    //                   create_aggregate_function_last_non_null_value<false>, true);
 }
 
 } // namespace doris::vectorized
