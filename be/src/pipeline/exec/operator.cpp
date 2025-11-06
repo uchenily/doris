@@ -21,50 +21,25 @@
 #include "pipeline/dependency.h"
 #include "pipeline/exec/aggregation_sink_operator.h"
 #include "pipeline/exec/aggregation_source_operator.h"
-#include "pipeline/exec/analytic_sink_operator.h"
-#include "pipeline/exec/analytic_source_operator.h"
-#include "pipeline/exec/assert_num_rows_operator.h"
-#include "pipeline/exec/blackhole_sink_operator.h"
-#include "pipeline/exec/cache_sink_operator.h"
-#include "pipeline/exec/cache_source_operator.h"
 #include "pipeline/exec/datagen_operator.h"
-#include "pipeline/exec/distinct_streaming_aggregation_operator.h"
-#include "pipeline/exec/empty_set_operator.h"
 #include "pipeline/exec/exchange_sink_operator.h"
 #include "pipeline/exec/exchange_source_operator.h"
 #include "pipeline/exec/file_scan_operator.h"
-#include "pipeline/exec/group_commit_block_sink_operator.h"
-#include "pipeline/exec/group_commit_scan_operator.h"
 #include "pipeline/exec/hashjoin_build_sink.h"
 #include "pipeline/exec/hashjoin_probe_operator.h"
-#include "pipeline/exec/jdbc_scan_operator.h"
-#include "pipeline/exec/jdbc_table_sink_operator.h"
 #include "pipeline/exec/local_merge_sort_source_operator.h"
 #include "pipeline/exec/materialization_opertor.h"
-#include "pipeline/exec/memory_scratch_sink_operator.h"
 #include "pipeline/exec/meta_scan_operator.h"
-#include "pipeline/exec/mock_operator.h"
-#include "pipeline/exec/mock_scan_operator.h"
-#include "pipeline/exec/nested_loop_join_build_operator.h"
-#include "pipeline/exec/nested_loop_join_probe_operator.h"
 #include "pipeline/exec/olap_scan_operator.h"
 #include "pipeline/exec/olap_table_sink_operator.h"
 #include "pipeline/exec/olap_table_sink_v2_operator.h"
 #include "pipeline/exec/partition_sort_sink_operator.h"
 #include "pipeline/exec/partition_sort_source_operator.h"
-#include "pipeline/exec/repeat_operator.h"
 #include "pipeline/exec/result_file_sink_operator.h"
 #include "pipeline/exec/result_sink_operator.h"
 #include "pipeline/exec/schema_scan_operator.h"
-#include "pipeline/exec/select_operator.h"
-#include "pipeline/exec/set_probe_sink_operator.h"
-#include "pipeline/exec/set_sink_operator.h"
-#include "pipeline/exec/set_source_operator.h"
 #include "pipeline/exec/sort_sink_operator.h"
 #include "pipeline/exec/sort_source_operator.h"
-#include "pipeline/exec/streaming_aggregation_operator.h"
-#include "pipeline/exec/union_sink_operator.h"
-#include "pipeline/exec/union_source_operator.h"
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
 #include "pipeline/local_exchange/local_exchange_source_operator.h"
 #include "pipeline/pipeline.h"
@@ -763,53 +738,30 @@ Status AsyncWriterSink<Writer, Parent>::close(RuntimeState* state, Status exec_s
 #define DECLARE_OPERATOR(LOCAL_STATE) template class DataSinkOperatorX<LOCAL_STATE>;
 DECLARE_OPERATOR(HashJoinBuildSinkLocalState)
 DECLARE_OPERATOR(ResultSinkLocalState)
-DECLARE_OPERATOR(JdbcTableSinkLocalState)
-DECLARE_OPERATOR(MemoryScratchSinkLocalState)
 DECLARE_OPERATOR(ResultFileSinkLocalState)
 DECLARE_OPERATOR(OlapTableSinkLocalState)
 DECLARE_OPERATOR(OlapTableSinkV2LocalState)
-DECLARE_OPERATOR(AnalyticSinkLocalState)
-DECLARE_OPERATOR(BlackholeSinkLocalState)
 DECLARE_OPERATOR(SortSinkLocalState)
 DECLARE_OPERATOR(LocalExchangeSinkLocalState)
 DECLARE_OPERATOR(AggSinkLocalState)
 DECLARE_OPERATOR(ExchangeSinkLocalState)
-DECLARE_OPERATOR(NestedLoopJoinBuildSinkLocalState)
-DECLARE_OPERATOR(UnionSinkLocalState)
 DECLARE_OPERATOR(PartitionSortSinkLocalState)
-DECLARE_OPERATOR(SetProbeSinkLocalState<true>)
-DECLARE_OPERATOR(SetProbeSinkLocalState<false>)
-DECLARE_OPERATOR(SetSinkLocalState<true>)
-DECLARE_OPERATOR(SetSinkLocalState<false>)
-DECLARE_OPERATOR(GroupCommitBlockSinkLocalState)
-DECLARE_OPERATOR(CacheSinkLocalState)
 
 #undef DECLARE_OPERATOR
 
 #define DECLARE_OPERATOR(LOCAL_STATE) template class OperatorX<LOCAL_STATE>;
 DECLARE_OPERATOR(HashJoinProbeLocalState)
 DECLARE_OPERATOR(OlapScanLocalState)
-DECLARE_OPERATOR(GroupCommitLocalState)
-DECLARE_OPERATOR(JDBCScanLocalState)
 DECLARE_OPERATOR(FileScanLocalState)
-DECLARE_OPERATOR(AnalyticLocalState)
 DECLARE_OPERATOR(SortLocalState)
 DECLARE_OPERATOR(LocalMergeSortLocalState)
 DECLARE_OPERATOR(AggLocalState)
 DECLARE_OPERATOR(ExchangeLocalState)
-DECLARE_OPERATOR(RepeatLocalState)
-DECLARE_OPERATOR(NestedLoopJoinProbeLocalState)
-DECLARE_OPERATOR(AssertNumRowsLocalState)
-DECLARE_OPERATOR(EmptySetLocalState)
-DECLARE_OPERATOR(UnionSourceLocalState)
 DECLARE_OPERATOR(PartitionSortSourceLocalState)
-DECLARE_OPERATOR(SetSourceLocalState<true>)
-DECLARE_OPERATOR(SetSourceLocalState<false>)
 DECLARE_OPERATOR(DataGenLocalState)
 DECLARE_OPERATOR(SchemaScanLocalState)
 DECLARE_OPERATOR(MetaScanLocalState)
 DECLARE_OPERATOR(LocalExchangeSourceLocalState)
-DECLARE_OPERATOR(CacheSourceLocalState)
 
 #ifdef BE_TEST
 DECLARE_OPERATOR(MockLocalState)
@@ -817,15 +769,8 @@ DECLARE_OPERATOR(MockScanLocalState)
 #endif
 #undef DECLARE_OPERATOR
 
-template class StreamingOperatorX<AssertNumRowsLocalState>;
-template class StreamingOperatorX<SelectLocalState>;
-
 template class StatefulOperatorX<HashJoinProbeLocalState>;
-template class StatefulOperatorX<RepeatLocalState>;
 template class StatefulOperatorX<MaterializationLocalState>;
-template class StatefulOperatorX<StreamingAggLocalState>;
-template class StatefulOperatorX<DistinctStreamingAggLocalState>;
-template class StatefulOperatorX<NestedLoopJoinProbeLocalState>;
 template class PipelineXSinkLocalState<HashJoinSharedState>;
 template class PipelineXSinkLocalState<SortSharedState>;
 template class PipelineXSinkLocalState<NestedLoopJoinSharedState>;
@@ -853,7 +798,6 @@ template class PipelineXLocalState<LocalExchangeSharedState>;
 template class PipelineXLocalState<BasicSharedState>;
 
 template class AsyncWriterSink<doris::vectorized::VFileResultWriter, ResultFileSinkOperatorX>;
-template class AsyncWriterSink<doris::vectorized::VJdbcTableWriter, JdbcTableSinkOperatorX>;
 template class AsyncWriterSink<doris::vectorized::VTabletWriter, OlapTableSinkOperatorX>;
 template class AsyncWriterSink<doris::vectorized::VTabletWriterV2, OlapTableSinkV2OperatorX>;
 

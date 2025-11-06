@@ -20,7 +20,6 @@
 #include <memory>
 
 #include "pipeline/exec/hashjoin_probe_operator.h"
-#include "pipeline/exec/nested_loop_join_probe_operator.h"
 #include "pipeline/exec/operator.h"
 
 namespace doris::pipeline {
@@ -133,8 +132,5 @@ JoinProbeOperatorX<LocalStateType>::JoinProbeOperatorX(ObjectPool* pool, const T
 
 template class JoinProbeLocalState<HashJoinSharedState, HashJoinProbeLocalState>;
 template class JoinProbeOperatorX<HashJoinProbeLocalState>;
-
-template class JoinProbeLocalState<NestedLoopJoinSharedState, NestedLoopJoinProbeLocalState>;
-template class JoinProbeOperatorX<NestedLoopJoinProbeLocalState>;
 
 } // namespace doris::pipeline

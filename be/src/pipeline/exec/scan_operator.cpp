@@ -26,10 +26,7 @@
 
 #include "common/global_types.h"
 #include "pipeline/exec/file_scan_operator.h"
-#include "pipeline/exec/group_commit_scan_operator.h"
-#include "pipeline/exec/jdbc_scan_operator.h"
 #include "pipeline/exec/meta_scan_operator.h"
-#include "pipeline/exec/mock_scan_operator.h"
 #include "pipeline/exec/olap_scan_operator.h"
 #include "pipeline/exec/operator.h"
 #include "runtime/descriptors.h"
@@ -1392,18 +1389,9 @@ size_t ScanOperatorX<LocalStateType>::get_reserve_mem_size(RuntimeState* state) 
 
 template class ScanOperatorX<OlapScanLocalState>;
 template class ScanLocalState<OlapScanLocalState>;
-template class ScanOperatorX<JDBCScanLocalState>;
-template class ScanLocalState<JDBCScanLocalState>;
 template class ScanOperatorX<FileScanLocalState>;
 template class ScanLocalState<FileScanLocalState>;
 template class ScanLocalState<MetaScanLocalState>;
 template class ScanOperatorX<MetaScanLocalState>;
-template class ScanOperatorX<GroupCommitLocalState>;
-template class ScanLocalState<GroupCommitLocalState>;
-
-#ifdef BE_TEST
-template class ScanOperatorX<MockScanLocalState>;
-template class ScanLocalState<MockScanLocalState>;
-#endif
 
 } // namespace doris::pipeline

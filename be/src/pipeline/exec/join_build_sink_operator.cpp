@@ -18,7 +18,6 @@
 #include "join_build_sink_operator.h"
 
 #include "pipeline/exec/hashjoin_build_sink.h"
-#include "pipeline/exec/nested_loop_join_build_operator.h"
 #include "pipeline/exec/operator.h"
 
 namespace doris::pipeline {
@@ -114,8 +113,5 @@ void JoinBuildSinkOperatorX<LocalStateType>::_init_join_op() {
 
 template class JoinBuildSinkOperatorX<HashJoinBuildSinkLocalState>;
 template class JoinBuildSinkLocalState<HashJoinSharedState, HashJoinBuildSinkLocalState>;
-template class JoinBuildSinkOperatorX<NestedLoopJoinBuildSinkLocalState>;
-template class JoinBuildSinkLocalState<NestedLoopJoinSharedState,
-                                       NestedLoopJoinBuildSinkLocalState>;
 
 } // namespace doris::pipeline

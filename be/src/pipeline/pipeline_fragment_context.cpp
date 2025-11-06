@@ -42,49 +42,25 @@
 #include "pipeline/dependency.h"
 #include "pipeline/exec/aggregation_sink_operator.h"
 #include "pipeline/exec/aggregation_source_operator.h"
-#include "pipeline/exec/analytic_sink_operator.h"
-#include "pipeline/exec/analytic_source_operator.h"
-#include "pipeline/exec/assert_num_rows_operator.h"
-#include "pipeline/exec/blackhole_sink_operator.h"
-#include "pipeline/exec/cache_sink_operator.h"
-#include "pipeline/exec/cache_source_operator.h"
 #include "pipeline/exec/datagen_operator.h"
-#include "pipeline/exec/distinct_streaming_aggregation_operator.h"
-#include "pipeline/exec/empty_set_operator.h"
 #include "pipeline/exec/exchange_sink_operator.h"
 #include "pipeline/exec/exchange_source_operator.h"
 #include "pipeline/exec/file_scan_operator.h"
-#include "pipeline/exec/group_commit_block_sink_operator.h"
-#include "pipeline/exec/group_commit_scan_operator.h"
 #include "pipeline/exec/hashjoin_build_sink.h"
 #include "pipeline/exec/hashjoin_probe_operator.h"
-#include "pipeline/exec/jdbc_scan_operator.h"
-#include "pipeline/exec/jdbc_table_sink_operator.h"
 #include "pipeline/exec/local_merge_sort_source_operator.h"
 #include "pipeline/exec/materialization_opertor.h"
-#include "pipeline/exec/memory_scratch_sink_operator.h"
 #include "pipeline/exec/meta_scan_operator.h"
-#include "pipeline/exec/nested_loop_join_build_operator.h"
-#include "pipeline/exec/nested_loop_join_probe_operator.h"
 #include "pipeline/exec/olap_scan_operator.h"
 #include "pipeline/exec/olap_table_sink_operator.h"
 #include "pipeline/exec/olap_table_sink_v2_operator.h"
 #include "pipeline/exec/partition_sort_sink_operator.h"
 #include "pipeline/exec/partition_sort_source_operator.h"
-#include "pipeline/exec/repeat_operator.h"
 #include "pipeline/exec/result_file_sink_operator.h"
 #include "pipeline/exec/result_sink_operator.h"
 #include "pipeline/exec/schema_scan_operator.h"
-#include "pipeline/exec/select_operator.h"
-#include "pipeline/exec/set_probe_sink_operator.h"
-#include "pipeline/exec/set_sink_operator.h"
-#include "pipeline/exec/set_source_operator.h"
 #include "pipeline/exec/sort_sink_operator.h"
 #include "pipeline/exec/sort_source_operator.h"
-#include "pipeline/exec/streaming_aggregation_operator.h"
-// #include "pipeline/exec/table_function_operator.h"
-#include "pipeline/exec/union_sink_operator.h"
-#include "pipeline/exec/union_source_operator.h"
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
 #include "pipeline/local_exchange/local_exchange_source_operator.h"
 #include "pipeline/local_exchange/local_exchanger.h"
@@ -96,11 +72,13 @@
 #include "runtime/result_buffer_mgr.h"
 #include "runtime/runtime_state.h"
 #include "runtime/stream_load/new_load_stream_mgr.h"
+#include "runtime/stream_load/stream_load_context.h"
 #include "runtime/thread_context.h"
 #include "runtime_filter/runtime_filter_mgr.h"
 #include "service/backend_options.h"
 #include "util/countdown_latch.h"
 #include "util/debug_util.h"
+#include "util/enum_util.hpp"
 #include "util/uid_util.h"
 #include "vec/common/sort/topn_sorter.h"
 #include "vec/runtime/vdata_stream_mgr.h"
@@ -1007,16 +985,6 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
                                                       output_exprs, thrift_sink.result_sink);
         break;
     }
-    // case TDataSinkType::DICTIONARY_SINK: {
-    //     if (!thrift_sink.__isset.dictionary_sink) {
-    //         return Status::InternalError("Missing dict sink.");
-    //     }
-    //
-    //     _sink = std::make_shared<DictSinkOperatorX>(next_sink_operator_id(), row_desc, output_exprs,
-    //                                                 thrift_sink.dictionary_sink);
-    //     break;
-    // }
-    case TDataSinkType::GROUP_COMMIT_OLAP_TABLE_SINK:
     case TDataSinkType::OLAP_TABLE_SINK: {
         if (state->query_options().enable_memtable_on_sink_node &&
             !_has_inverted_index_v1_or_partial_update(thrift_sink.olap_table_sink)) {
@@ -1026,45 +994,6 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
             _sink = std::make_shared<OlapTableSinkOperatorX>(pool, next_sink_operator_id(),
                                                              row_desc, output_exprs);
         }
-        break;
-    }
-    case TDataSinkType::GROUP_COMMIT_BLOCK_SINK: {
-        DCHECK(thrift_sink.__isset.olap_table_sink);
-        DCHECK(state->get_query_ctx() != nullptr);
-        state->get_query_ctx()->query_mem_tracker()->is_group_commit_load = true;
-        _sink = std::make_shared<GroupCommitBlockSinkOperatorX>(next_sink_operator_id(), row_desc,
-                                                                output_exprs);
-        break;
-    }
-    // case TDataSinkType::HIVE_TABLE_SINK: {
-    //     if (!thrift_sink.__isset.hive_table_sink) {
-    //         return Status::InternalError("Missing hive table sink.");
-    //     }
-    //     _sink = std::make_shared<HiveTableSinkOperatorX>(pool, next_sink_operator_id(), row_desc,
-    //                                                      output_exprs);
-    //     break;
-    // }
-    case TDataSinkType::JDBC_TABLE_SINK: {
-        if (!thrift_sink.__isset.jdbc_table_sink) {
-            return Status::InternalError("Missing data jdbc sink.");
-        }
-        if (config::enable_java_support) {
-            _sink = std::make_shared<JdbcTableSinkOperatorX>(row_desc, next_sink_operator_id(),
-                                                             output_exprs);
-        } else {
-            return Status::InternalError(
-                    "Jdbc table sink is not enabled, you can change be config "
-                    "enable_java_support to true and restart be.");
-        }
-        break;
-    }
-    case TDataSinkType::MEMORY_SCRATCH_SINK: {
-        if (!thrift_sink.__isset.memory_scratch_sink) {
-            return Status::InternalError("Missing data buffer sink.");
-        }
-
-        _sink = std::make_shared<MemoryScratchSinkOperatorX>(row_desc, next_sink_operator_id(),
-                                                             output_exprs);
         break;
     }
     case TDataSinkType::RESULT_FILE_SINK: {
@@ -1081,74 +1010,6 @@ Status PipelineFragmentContext::_create_data_sink(ObjectPool* pool, const TDataS
             _sink = std::make_shared<ResultFileSinkOperatorX>(next_sink_operator_id(), row_desc,
                                                               output_exprs);
         }
-        break;
-    }
-    // case TDataSinkType::MULTI_CAST_DATA_STREAM_SINK: {
-    //     DCHECK(thrift_sink.__isset.multi_cast_stream_sink);
-    //     DCHECK_GT(thrift_sink.multi_cast_stream_sink.sinks.size(), 0);
-    //     auto sink_id = next_sink_operator_id();
-    //     const int multi_cast_node_id = sink_id;
-    //     auto sender_size = thrift_sink.multi_cast_stream_sink.sinks.size();
-    //     // one sink has multiple sources.
-    //     std::vector<int> sources;
-    //     for (int i = 0; i < sender_size; ++i) {
-    //         auto source_id = next_operator_id();
-    //         sources.push_back(source_id);
-    //     }
-    //
-    //     _sink = std::make_shared<MultiCastDataStreamSinkOperatorX>(
-    //             sink_id, multi_cast_node_id, sources, pool, thrift_sink.multi_cast_stream_sink);
-    //     for (int i = 0; i < sender_size; ++i) {
-    //         auto new_pipeline = add_pipeline();
-    //         // use to exchange sink
-    //         RowDescriptor* exchange_row_desc = nullptr;
-    //         {
-    //             const auto& tmp_row_desc =
-    //                     !thrift_sink.multi_cast_stream_sink.sinks[i].output_exprs.empty()
-    //                             ? RowDescriptor(state->desc_tbl(),
-    //                                             {thrift_sink.multi_cast_stream_sink.sinks[i]
-    //                                                      .output_tuple_id},
-    //                                             {false})
-    //                             : row_desc;
-    //             exchange_row_desc = pool->add(new RowDescriptor(tmp_row_desc));
-    //         }
-    //         auto source_id = sources[i];
-    //         OperatorPtr source_op;
-    //         // 1. create and set the source operator of multi_cast_data_stream_source for new pipeline
-    //         source_op = std::make_shared<MultiCastDataStreamerSourceOperatorX>(
-    //                 multi_cast_node_id, i, pool, thrift_sink.multi_cast_stream_sink.sinks[i],
-    //                 row_desc, /*operator_id=*/source_id);
-    //         RETURN_IF_ERROR(new_pipeline->add_operator(
-    //                 source_op, params.__isset.parallel_instances ? params.parallel_instances : 0));
-    //         // 2. create and set sink operator of data stream sender for new pipeline
-    //
-    //         DataSinkOperatorPtr sink_op;
-    //         sink_op = std::make_shared<ExchangeSinkOperatorX>(
-    //                 state, *exchange_row_desc, next_sink_operator_id(),
-    //                 thrift_sink.multi_cast_stream_sink.sinks[i],
-    //                 thrift_sink.multi_cast_stream_sink.destinations[i], _fragment_instance_ids);
-    //
-    //         RETURN_IF_ERROR(new_pipeline->set_sink(sink_op));
-    //         {
-    //             TDataSink* t = pool->add(new TDataSink());
-    //             t->stream_sink = thrift_sink.multi_cast_stream_sink.sinks[i];
-    //             RETURN_IF_ERROR(sink_op->init(*t));
-    //         }
-    //
-    //         // 3. set dependency dag
-    //         _dag[new_pipeline->id()].push_back(cur_pipeline_id);
-    //     }
-    //     if (sources.empty()) {
-    //         return Status::InternalError("size of sources must be greater than 0");
-    //     }
-    //     break;
-    // }
-    case TDataSinkType::BLACKHOLE_SINK: {
-        if (!thrift_sink.__isset.blackhole_sink) {
-            return Status::InternalError("Missing blackhole sink.");
-        }
-
-        _sink.reset(new BlackholeSinkOperatorX(next_sink_operator_id()));
         break;
     }
     default:
@@ -1171,34 +1032,13 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
     bool enable_query_cache = _params.fragment.__isset.query_cache_param;
 
     bool fe_with_old_version = false;
+    LOG(INFO) << "node type: " << util::EnumName(tnode.node_type);
     switch (tnode.node_type) {
     case TPlanNodeType::OLAP_SCAN_NODE: {
         op = std::make_shared<OlapScanOperatorX>(
                 pool, tnode, next_operator_id(), descs, _num_instances,
                 enable_query_cache ? _params.fragment.query_cache_param : TQueryCacheParam {});
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        fe_with_old_version = !tnode.__isset.is_serial_operator;
-        break;
-    }
-    case TPlanNodeType::GROUP_COMMIT_SCAN_NODE: {
-        DCHECK(_query_ctx != nullptr);
-        _query_ctx->query_mem_tracker()->is_group_commit_load = true;
-        op = std::make_shared<GroupCommitOperatorX>(pool, tnode, next_operator_id(), descs,
-                                                    _num_instances);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        fe_with_old_version = !tnode.__isset.is_serial_operator;
-        break;
-    }
-    case TPlanNodeType::JDBC_SCAN_NODE: {
-        if (config::enable_java_support) {
-            op = std::make_shared<JDBCScanOperatorX>(pool, tnode, next_operator_id(), descs,
-                                                     _num_instances);
-            RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        } else {
-            return Status::InternalError(
-                    "Jdbc scan node is disabled, you can change be config enable_java_support "
-                    "to true and restart be.");
-        }
         fe_with_old_version = !tnode.__isset.is_serial_operator;
         break;
     }
@@ -1221,89 +1061,89 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         break;
     }
     case TPlanNodeType::AGGREGATION_NODE: {
-        if (tnode.agg_node.grouping_exprs.empty() &&
-            descs.get_tuple_descriptor(tnode.agg_node.output_tuple_id)->slots().empty()) {
-            return Status::InternalError("Illegal aggregate node " + std::to_string(tnode.node_id) +
-                                         ": group by and output is empty");
-        }
-        bool need_create_cache_op =
-                enable_query_cache && tnode.node_id == _params.fragment.query_cache_param.node_id;
-        auto create_query_cache_operator = [&](PipelinePtr& new_pipe) {
-            auto cache_node_id = _params.local_params[0].per_node_scan_ranges.begin()->first;
-            auto cache_source_id = next_operator_id();
-            op = std::make_shared<CacheSourceOperatorX>(pool, cache_node_id, cache_source_id,
-                                                        _params.fragment.query_cache_param);
-            RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-
-            const auto downstream_pipeline_id = cur_pipe->id();
-            if (!_dag.contains(downstream_pipeline_id)) {
-                _dag.insert({downstream_pipeline_id, {}});
-            }
-            new_pipe = add_pipeline(cur_pipe);
-            _dag[downstream_pipeline_id].push_back(new_pipe->id());
-
-            DataSinkOperatorPtr cache_sink(new CacheSinkOperatorX(
-                    next_sink_operator_id(), cache_source_id, op->operator_id()));
-            RETURN_IF_ERROR(new_pipe->set_sink(cache_sink));
-            return Status::OK();
-        };
-        // const bool group_by_limit_opt =
-        //         tnode.agg_node.__isset.agg_sort_info_by_group_key && tnode.limit > 0;
-
-        /// PartitionedAggSourceOperatorX does not support "group by limit opt(#29641)" yet.
-        /// If `group_by_limit_opt` is true, then it might not need to spill at all.
-        // const bool enable_spill = _runtime_state->enable_spill() &&
-        //                           !tnode.agg_node.grouping_exprs.empty() && !group_by_limit_opt;
-        const bool is_streaming_agg = tnode.agg_node.__isset.use_streaming_preaggregation &&
-                                      tnode.agg_node.use_streaming_preaggregation &&
-                                      !tnode.agg_node.grouping_exprs.empty();
-        const bool can_use_distinct_streaming_agg =
-                tnode.agg_node.aggregate_functions.empty() &&
-                !tnode.agg_node.__isset.agg_sort_info_by_group_key &&
-                _params.query_options.__isset.enable_distinct_streaming_aggregation &&
-                _params.query_options.enable_distinct_streaming_aggregation;
-
-        if (can_use_distinct_streaming_agg) {
-            if (need_create_cache_op) {
-                PipelinePtr new_pipe;
-                RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
-
-                op = std::make_shared<DistinctStreamingAggOperatorX>(
-                        pool, next_operator_id(), tnode, descs, _require_bucket_distribution);
-                op->set_followed_by_shuffled_operator(false);
-                _require_bucket_distribution = true;
-                RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
-                RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
-                cur_pipe = new_pipe;
-            } else {
-                op = std::make_shared<DistinctStreamingAggOperatorX>(
-                        pool, next_operator_id(), tnode, descs, _require_bucket_distribution);
-                op->set_followed_by_shuffled_operator(followed_by_shuffled_operator);
-                _require_bucket_distribution =
-                        _require_bucket_distribution || op->require_data_distribution();
-                RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-            }
-        } else if (is_streaming_agg) {
-            if (need_create_cache_op) {
-                PipelinePtr new_pipe;
-                RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
-
-                op = std::make_shared<StreamingAggOperatorX>(pool, next_operator_id(), tnode, descs,
-                                                             _require_bucket_distribution);
-                RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
-                RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
-                cur_pipe = new_pipe;
-            } else {
-                op = std::make_shared<StreamingAggOperatorX>(pool, next_operator_id(), tnode, descs,
-                                                             _require_bucket_distribution);
-                RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-            }
-        } else {
+        // if (tnode.agg_node.grouping_exprs.empty() &&
+        //     descs.get_tuple_descriptor(tnode.agg_node.output_tuple_id)->slots().empty()) {
+        //     return Status::InternalError("Illegal aggregate node " + std::to_string(tnode.node_id) +
+        //                                  ": group by and output is empty");
+        // }
+        // bool need_create_cache_op =
+        //         enable_query_cache && tnode.node_id == _params.fragment.query_cache_param.node_id;
+        // auto create_query_cache_operator = [&](PipelinePtr& new_pipe) {
+        //     auto cache_node_id = _params.local_params[0].per_node_scan_ranges.begin()->first;
+        //     auto cache_source_id = next_operator_id();
+        //     op = std::make_shared<CacheSourceOperatorX>(pool, cache_node_id, cache_source_id,
+        //                                                 _params.fragment.query_cache_param);
+        //     RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
+        //
+        //     const auto downstream_pipeline_id = cur_pipe->id();
+        //     if (!_dag.contains(downstream_pipeline_id)) {
+        //         _dag.insert({downstream_pipeline_id, {}});
+        //     }
+        //     new_pipe = add_pipeline(cur_pipe);
+        //     _dag[downstream_pipeline_id].push_back(new_pipe->id());
+        //
+        //     DataSinkOperatorPtr cache_sink(new CacheSinkOperatorX(
+        //             next_sink_operator_id(), cache_source_id, op->operator_id()));
+        //     RETURN_IF_ERROR(new_pipe->set_sink(cache_sink));
+        //     return Status::OK();
+        // };
+        // // const bool group_by_limit_opt =
+        // //         tnode.agg_node.__isset.agg_sort_info_by_group_key && tnode.limit > 0;
+        //
+        // /// PartitionedAggSourceOperatorX does not support "group by limit opt(#29641)" yet.
+        // /// If `group_by_limit_opt` is true, then it might not need to spill at all.
+        // // const bool enable_spill = _runtime_state->enable_spill() &&
+        // //                           !tnode.agg_node.grouping_exprs.empty() && !group_by_limit_opt;
+        // const bool is_streaming_agg = tnode.agg_node.__isset.use_streaming_preaggregation &&
+        //                               tnode.agg_node.use_streaming_preaggregation &&
+        //                               !tnode.agg_node.grouping_exprs.empty();
+        // const bool can_use_distinct_streaming_agg =
+        //         tnode.agg_node.aggregate_functions.empty() &&
+        //         !tnode.agg_node.__isset.agg_sort_info_by_group_key &&
+        //         _params.query_options.__isset.enable_distinct_streaming_aggregation &&
+        //         _params.query_options.enable_distinct_streaming_aggregation;
+        //
+        // if (can_use_distinct_streaming_agg) {
+        //     if (need_create_cache_op) {
+        //         PipelinePtr new_pipe;
+        //         RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
+        //
+        //         op = std::make_shared<DistinctStreamingAggOperatorX>(
+        //                 pool, next_operator_id(), tnode, descs, _require_bucket_distribution);
+        //         op->set_followed_by_shuffled_operator(false);
+        //         _require_bucket_distribution = true;
+        //         RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
+        //         RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
+        //         cur_pipe = new_pipe;
+        //     } else {
+        //         op = std::make_shared<DistinctStreamingAggOperatorX>(
+        //                 pool, next_operator_id(), tnode, descs, _require_bucket_distribution);
+        //         op->set_followed_by_shuffled_operator(followed_by_shuffled_operator);
+        //         _require_bucket_distribution =
+        //                 _require_bucket_distribution || op->require_data_distribution();
+        //         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
+        //     }
+        // } else if (is_streaming_agg) {
+        //     if (need_create_cache_op) {
+        //         PipelinePtr new_pipe;
+        //         RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
+        //
+        //         op = std::make_shared<StreamingAggOperatorX>(pool, next_operator_id(), tnode, descs,
+        //                                                      _require_bucket_distribution);
+        //         RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
+        //         RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
+        //         cur_pipe = new_pipe;
+        //     } else {
+        //         op = std::make_shared<StreamingAggOperatorX>(pool, next_operator_id(), tnode, descs,
+        //                                                      _require_bucket_distribution);
+        //         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
+        //     }
+        // } else {
             // create new pipeline to add query cache operator
             PipelinePtr new_pipe;
-            if (need_create_cache_op) {
-                RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
-            }
+            // if (need_create_cache_op) {
+            //     RETURN_IF_ERROR(create_query_cache_operator(new_pipe));
+            // }
 
             // if (enable_spill) {
             //     op = std::make_shared<PartitionedAggSourceOperatorX>(pool, tnode,
@@ -1311,13 +1151,13 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
             // } else {
                 op = std::make_shared<AggSourceOperatorX>(pool, tnode, next_operator_id(), descs);
             // }
-            if (need_create_cache_op) {
-                RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
-                RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
-                cur_pipe = new_pipe;
-            } else {
+            // if (need_create_cache_op) {
+            //     RETURN_IF_ERROR(cur_pipe->operators().front()->set_child(op));
+            //     RETURN_IF_ERROR(new_pipe->add_operator(op, _parallel_instances));
+            //     cur_pipe = new_pipe;
+            // } else {
                 RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-            }
+            // }
 
             const auto downstream_pipeline_id = cur_pipe->id();
             if (!_dag.contains(downstream_pipeline_id)) {
@@ -1341,7 +1181,7 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
                     _require_bucket_distribution || sink->require_data_distribution();
             RETURN_IF_ERROR(cur_pipe->set_sink(sink));
             RETURN_IF_ERROR(cur_pipe->sink()->init(tnode, _runtime_state.get()));
-        }
+        // }
         break;
     }
     case TPlanNodeType::HASH_JOIN_NODE: {
@@ -1433,50 +1273,6 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
                 _require_bucket_distribution || op->require_data_distribution();
         break;
     }
-    case TPlanNodeType::CROSS_JOIN_NODE: {
-        op = std::make_shared<NestedLoopJoinProbeOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-
-        const auto downstream_pipeline_id = cur_pipe->id();
-        if (!_dag.contains(downstream_pipeline_id)) {
-            _dag.insert({downstream_pipeline_id, {}});
-        }
-        PipelinePtr build_side_pipe = add_pipeline(cur_pipe);
-        _dag[downstream_pipeline_id].push_back(build_side_pipe->id());
-
-        DataSinkOperatorPtr sink;
-        sink = std::make_shared<NestedLoopJoinBuildSinkOperatorX>(pool, next_sink_operator_id(),
-                                                                  op->operator_id(), tnode, descs);
-        RETURN_IF_ERROR(build_side_pipe->set_sink(sink));
-        RETURN_IF_ERROR(build_side_pipe->sink()->init(tnode, _runtime_state.get()));
-        _pipeline_parent_map.push(op->node_id(), cur_pipe);
-        _pipeline_parent_map.push(op->node_id(), build_side_pipe);
-        break;
-    }
-    case TPlanNodeType::UNION_NODE: {
-        int child_count = tnode.num_children;
-        op = std::make_shared<UnionSourceOperatorX>(pool, tnode, next_operator_id(), descs);
-        op->set_followed_by_shuffled_operator(_require_bucket_distribution);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-
-        const auto downstream_pipeline_id = cur_pipe->id();
-        if (!_dag.contains(downstream_pipeline_id)) {
-            _dag.insert({downstream_pipeline_id, {}});
-        }
-        for (int i = 0; i < child_count; i++) {
-            PipelinePtr build_side_pipe = add_pipeline(cur_pipe);
-            _dag[downstream_pipeline_id].push_back(build_side_pipe->id());
-            DataSinkOperatorPtr sink;
-            sink = std::make_shared<UnionSinkOperatorX>(i, next_sink_operator_id(),
-                                                        op->operator_id(), pool, tnode, descs);
-            sink->set_followed_by_shuffled_operator(_require_bucket_distribution);
-            RETURN_IF_ERROR(build_side_pipe->set_sink(sink));
-            RETURN_IF_ERROR(build_side_pipe->sink()->init(tnode, _runtime_state.get()));
-            // preset children pipelines. if any pipeline found this as its father, will use the prepared pipeline to build.
-            _pipeline_parent_map.push(op->node_id(), build_side_pipe);
-        }
-        break;
-    }
     case TPlanNodeType::SORT_NODE: {
         // const auto should_spill = _runtime_state->enable_spill() &&
         //                           tnode.sort_node.algorithm == TSortAlgorithm::FULL_SORT;
@@ -1534,62 +1330,8 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         RETURN_IF_ERROR(cur_pipe->sink()->init(tnode, _runtime_state.get()));
         break;
     }
-    case TPlanNodeType::ANALYTIC_EVAL_NODE: {
-        op = std::make_shared<AnalyticSourceOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-
-        const auto downstream_pipeline_id = cur_pipe->id();
-        if (!_dag.contains(downstream_pipeline_id)) {
-            _dag.insert({downstream_pipeline_id, {}});
-        }
-        cur_pipe = add_pipeline(cur_pipe);
-        _dag[downstream_pipeline_id].push_back(cur_pipe->id());
-
-        DataSinkOperatorPtr sink;
-        sink = std::make_shared<AnalyticSinkOperatorX>(pool, next_sink_operator_id(),
-                                                       op->operator_id(), tnode, descs,
-                                                       _require_bucket_distribution);
-        sink->set_followed_by_shuffled_operator(followed_by_shuffled_operator);
-        _require_bucket_distribution =
-                _require_bucket_distribution || sink->require_data_distribution();
-        RETURN_IF_ERROR(cur_pipe->set_sink(sink));
-        RETURN_IF_ERROR(cur_pipe->sink()->init(tnode, _runtime_state.get()));
-        break;
-    }
     case TPlanNodeType::MATERIALIZATION_NODE: {
         op = std::make_shared<MaterializationOperator>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        break;
-    }
-    case TPlanNodeType::INTERSECT_NODE: {
-        RETURN_IF_ERROR(_build_operators_for_set_operation_node<true>(
-                pool, tnode, descs, op, cur_pipe, parent_idx, child_idx));
-        op->set_followed_by_shuffled_operator(_require_bucket_distribution);
-        break;
-    }
-    case TPlanNodeType::EXCEPT_NODE: {
-        RETURN_IF_ERROR(_build_operators_for_set_operation_node<false>(
-                pool, tnode, descs, op, cur_pipe, parent_idx, child_idx));
-        op->set_followed_by_shuffled_operator(_require_bucket_distribution);
-        break;
-    }
-    case TPlanNodeType::REPEAT_NODE: {
-        op = std::make_shared<RepeatOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        break;
-    }
-    // case TPlanNodeType::TABLE_FUNCTION_NODE: {
-    //     op = std::make_shared<TableFunctionOperatorX>(pool, tnode, next_operator_id(), descs);
-    //     RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-    //     break;
-    // }
-    case TPlanNodeType::ASSERT_NUM_ROWS_NODE: {
-        op = std::make_shared<AssertNumRowsOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        break;
-    }
-    case TPlanNodeType::EMPTY_SET_NODE: {
-        op = std::make_shared<EmptySetSourceOperatorX>(pool, tnode, next_operator_id(), descs);
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
         break;
     }
@@ -1609,11 +1351,6 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
         break;
     }
-    case TPlanNodeType::SELECT_NODE: {
-        op = std::make_shared<SelectOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-        break;
-    }
     default:
         return Status::InternalError("Unsupported exec type in pipeline: {}",
                                      print_plan_node_type(tnode.node_type));
@@ -1628,38 +1365,6 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
 // NOLINTEND(readability-function-cognitive-complexity)
 // NOLINTEND(readability-function-size)
 
-template <bool is_intersect>
-Status PipelineFragmentContext::_build_operators_for_set_operation_node(
-        ObjectPool* pool, const TPlanNode& tnode, const DescriptorTbl& descs, OperatorPtr& op,
-        PipelinePtr& cur_pipe, int parent_idx, int child_idx) {
-    op.reset(new SetSourceOperatorX<is_intersect>(pool, tnode, next_operator_id(), descs));
-    RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
-
-    const auto downstream_pipeline_id = cur_pipe->id();
-    if (!_dag.contains(downstream_pipeline_id)) {
-        _dag.insert({downstream_pipeline_id, {}});
-    }
-
-    for (int child_id = 0; child_id < tnode.num_children; child_id++) {
-        PipelinePtr probe_side_pipe = add_pipeline(cur_pipe);
-        _dag[downstream_pipeline_id].push_back(probe_side_pipe->id());
-
-        DataSinkOperatorPtr sink;
-        if (child_id == 0) {
-            sink.reset(new SetSinkOperatorX<is_intersect>(child_id, next_sink_operator_id(),
-                                                          op->operator_id(), pool, tnode, descs));
-        } else {
-            sink.reset(new SetProbeSinkOperatorX<is_intersect>(
-                    child_id, next_sink_operator_id(), op->operator_id(), pool, tnode, descs));
-        }
-        RETURN_IF_ERROR(probe_side_pipe->set_sink(sink));
-        RETURN_IF_ERROR(probe_side_pipe->sink()->init(tnode, _runtime_state.get()));
-        // prepare children pipelines. if any pipeline found this as its father, will use the prepared pipeline to build.
-        _pipeline_parent_map.push(op->node_id(), probe_side_pipe);
-    }
-
-    return Status::OK();
-}
 
 Status PipelineFragmentContext::submit() {
     if (_submitted) {
