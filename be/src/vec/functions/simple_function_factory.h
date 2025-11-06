@@ -33,6 +33,7 @@ class SimpleFunctionFactory;
 
 void register_function_plus(SimpleFunctionFactory& factory);
 void register_function_minus(SimpleFunctionFactory& factory);
+void register_function_comparison_greater(SimpleFunctionFactory& factory);
 
 class SimpleFunctionFactory {
     using Creator = std::function<FunctionBuilderPtr()>;
@@ -164,6 +165,7 @@ public:
         std::call_once(oc, []() {
             register_function_plus(instance);
             register_function_minus(instance);
+            register_function_comparison_greater(instance);
         });
         return instance;
     }
