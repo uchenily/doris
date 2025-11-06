@@ -37,7 +37,6 @@
 #include "pipeline/exec/group_commit_scan_operator.h"
 #include "pipeline/exec/hashjoin_build_sink.h"
 #include "pipeline/exec/hashjoin_probe_operator.h"
-#include "pipeline/exec/hive_table_sink_operator.h"
 #include "pipeline/exec/jdbc_scan_operator.h"
 #include "pipeline/exec/jdbc_table_sink_operator.h"
 #include "pipeline/exec/local_merge_sort_source_operator.h"
@@ -769,7 +768,6 @@ DECLARE_OPERATOR(MemoryScratchSinkLocalState)
 DECLARE_OPERATOR(ResultFileSinkLocalState)
 DECLARE_OPERATOR(OlapTableSinkLocalState)
 DECLARE_OPERATOR(OlapTableSinkV2LocalState)
-DECLARE_OPERATOR(HiveTableSinkLocalState)
 DECLARE_OPERATOR(AnalyticSinkLocalState)
 DECLARE_OPERATOR(BlackholeSinkLocalState)
 DECLARE_OPERATOR(SortSinkLocalState)
@@ -858,7 +856,6 @@ template class AsyncWriterSink<doris::vectorized::VFileResultWriter, ResultFileS
 template class AsyncWriterSink<doris::vectorized::VJdbcTableWriter, JdbcTableSinkOperatorX>;
 template class AsyncWriterSink<doris::vectorized::VTabletWriter, OlapTableSinkOperatorX>;
 template class AsyncWriterSink<doris::vectorized::VTabletWriterV2, OlapTableSinkV2OperatorX>;
-template class AsyncWriterSink<doris::vectorized::VHiveTableWriter, HiveTableSinkOperatorX>;
 
 #ifdef BE_TEST
 template class OperatorX<DummyOperatorLocalState>;

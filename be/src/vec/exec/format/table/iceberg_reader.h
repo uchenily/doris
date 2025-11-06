@@ -32,7 +32,7 @@
 #include "runtime/types.h"
 #include "table_format_reader.h"
 #include "vec/columns/column_dictionary.h"
-#include "vec/exec/format/orc/vorc_reader.h"
+// #include "vec/exec/format/orc/vorc_reader.h"
 #include "vec/exec/format/parquet/vparquet_reader.h"
 #include "vec/exec/format/table/equality_delete.h"
 #include "vec/exprs/vslot_ref.h"
@@ -189,45 +189,6 @@ protected:
 private:
     Status _read_position_delete_file(const TFileRangeDesc* delete_range,
                                       DeleteFile* position_delete) final;
-};
-class IcebergOrcReader final : public IcebergTableReader {
-public:
-    ENABLE_FACTORY_CREATOR(IcebergOrcReader);
-
-    Status _read_position_delete_file(const TFileRangeDesc* delete_range,
-                                      DeleteFile* position_delete) final;
-
-    IcebergOrcReader(std::unique_ptr<GenericReader> file_format_reader, RuntimeProfile* profile,
-                     RuntimeState* state, const TFileScanRangeParams& params,
-                     const TFileRangeDesc& range, ShardedKVCache* kv_cache, io::IOContext* io_ctx,
-                     FileMetaCache* meta_cache)
-            : IcebergTableReader(std::move(file_format_reader), profile, state, params, range,
-                                 kv_cache, io_ctx, meta_cache) {}
-
-    void set_delete_rows() final {
-        auto* orc_reader = (OrcReader*)_file_format_reader.get();
-        orc_reader->set_position_delete_rowids(&_iceberg_delete_rows);
-    }
-
-    Status init_reader(
-            const std::vector<std::string>& file_col_names,
-            const std::unordered_map<std::string, ColumnValueRangeType>* colname_to_value_range,
-            const VExprContextSPtrs& conjuncts, const TupleDescriptor* tuple_descriptor,
-            const RowDescriptor* row_descriptor,
-            const std::unordered_map<std::string, int>* colname_to_slot_id,
-            const VExprContextSPtrs* not_single_slot_filter_conjuncts,
-            const std::unordered_map<int, VExprContextSPtrs>* slot_id_to_filter_conjuncts);
-
-protected:
-    std::unique_ptr<GenericReader> _create_equality_reader(
-            const TFileRangeDesc& delete_desc) override {
-        return OrcReader::create_unique(_profile, _state, _params, delete_desc,
-                                        READ_DELETE_FILE_BATCH_SIZE, _state->timezone(), _io_ctx,
-                                        _meta_cache);
-    }
-
-private:
-    static const std::string ICEBERG_ORC_ATTRIBUTE;
 };
 
 } // namespace vectorized

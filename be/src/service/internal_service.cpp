@@ -116,11 +116,10 @@
 #include "util/uid_util.h"
 #include "vec/common/schema_util.h"
 #include "vec/core/block.h"
-#include "vec/exec/format/avro//avro_jni_reader.h"
+#include "vec/exec/format/avro/avro_jni_reader.h"
 #include "vec/exec/format/csv/csv_reader.h"
 #include "vec/exec/format/generic_reader.h"
 #include "vec/exec/format/json/new_json_reader.h"
-#include "vec/exec/format/orc/vorc_reader.h"
 #include "vec/exec/format/parquet/vparquet_reader.h"
 #include "vec/exec/format/text/text_reader.h"
 // #include "vec/functions/dictionary_factory.h"
@@ -843,10 +842,10 @@ void PInternalService::fetch_table_schema(google::protobuf::RpcController* contr
             reader = vectorized::ParquetReader::create_unique(params, range, &io_ctx, nullptr);
             break;
         }
-        case TFileFormatType::FORMAT_ORC: {
-            reader = vectorized::OrcReader::create_unique(params, range, "", &io_ctx);
-            break;
-        }
+        // case TFileFormatType::FORMAT_ORC: {
+        //     reader = vectorized::OrcReader::create_unique(params, range, "", &io_ctx);
+        //     break;
+        // }
         case TFileFormatType::FORMAT_JSON: {
             reader = vectorized::NewJsonReader::create_unique(profile.get(), params, range,
                                                               file_slots, &io_ctx);

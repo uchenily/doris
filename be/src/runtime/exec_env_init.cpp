@@ -113,7 +113,6 @@
 #include "util/threadpool.h"
 #include "util/thrift_rpc_helper.h"
 #include "util/timezone_utils.h"
-#include "vec/exec/format/orc/orc_memory_pool.h"
 #include "vec/exec/format/parquet/arrow_memory_pool.h"
 #include "vec/exec/scan/scanner_scheduler.h"
 #include "vec/runtime/vdata_stream_mgr.h"
@@ -622,8 +621,6 @@ Status ExecEnv::init_mem_env() {
     // Initialize encoding info resolver
     _encoding_info_resolver = new segment_v2::EncodingInfoResolver();
 
-    // init orc memory pool
-    _orc_memory_pool = new doris::vectorized::ORCMemoryPool();
     _arrow_memory_pool = new doris::vectorized::ArrowMemoryPool();
 
     _query_cache = QueryCache::create_global_cache(config::query_cache_size * 1024L * 1024L);
@@ -883,8 +880,6 @@ void ExecEnv::destroy() {
     SAFE_DELETE(_runtime_query_statistics_mgr);
 
     SAFE_DELETE(_arrow_memory_pool);
-
-    SAFE_DELETE(_orc_memory_pool);
 
     // dns cache is a global instance and need to be released at last
     SAFE_DELETE(_dns_cache);
