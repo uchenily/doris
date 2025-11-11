@@ -27,7 +27,6 @@
 #include "exchange_sink_buffer.h"
 #include "operator.h"
 #include "pipeline/shuffle/writer.h"
-#include "vec/sink/scale_writer_partitioning_exchanger.hpp"
 #include "vec/sink/vdata_stream_sender.h"
 
 namespace doris {

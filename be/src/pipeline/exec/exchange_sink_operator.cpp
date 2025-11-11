@@ -145,28 +145,6 @@ Status ExchangeSinkLocalState::init(RuntimeState* state, LocalSinkStateInfo& inf
                 p._tablet_sink_partition, p._tablet_sink_location, p._tablet_sink_tuple_id, this);
         RETURN_IF_ERROR(_partitioner->init({}));
         RETURN_IF_ERROR(_partitioner->prepare(state, {}));
-    } else if (_part_type == TPartitionType::HIVE_TABLE_SINK_HASH_PARTITIONED) {
-        _partition_count =
-                channels.size() * config::table_sink_partition_write_max_partition_nums_per_writer;
-        _partitioner = std::make_unique<vectorized::ScaleWriterPartitioner>(
-                channels.size(), _partition_count, channels.size(), 1,
-                config::table_sink_partition_write_min_partition_data_processed_rebalance_threshold /
-                                        state->task_num() ==
-                                0
-                        ? config::table_sink_partition_write_min_partition_data_processed_rebalance_threshold
-                        : config::table_sink_partition_write_min_partition_data_processed_rebalance_threshold /
-                                  state->task_num(),
-                config::table_sink_partition_write_min_data_processed_rebalance_threshold /
-                                        state->task_num() ==
-                                0
-                        ? config::table_sink_partition_write_min_data_processed_rebalance_threshold
-                        : config::table_sink_partition_write_min_data_processed_rebalance_threshold /
-                                  state->task_num());
-
-        RETURN_IF_ERROR(_partitioner->init(p._texprs));
-        RETURN_IF_ERROR(_partitioner->prepare(state, p._row_desc));
-        custom_profile()->add_info_string(
-                "Partitioner", fmt::format("ScaleWriterPartitioner({})", _partition_count));
     }
 
     return Status::OK();

@@ -189,11 +189,6 @@ public:
                            PTabletKeyLookupResponse* response,
                            google::protobuf::Closure* done) override;
 
-    void test_jdbc_connection(google::protobuf::RpcController* controller,
-                              const PJdbcTestConnectionRequest* request,
-                              PJdbcTestConnectionResult* result,
-                              google::protobuf::Closure* done) override;
-
     void fetch_remote_tablet_schema(google::protobuf::RpcController* controller,
                                     const PFetchRemoteSchemaRequest* request,
                                     PFetchRemoteSchemaResponse* response,

@@ -232,49 +232,50 @@ StorageEngine::~StorageEngine() {
 }
 
 static Status load_data_dirs(const std::vector<DataDir*>& data_dirs) {
-    std::unique_ptr<ThreadPool> pool;
-
-    int num_threads = config::load_data_dirs_threads;
-    if (num_threads <= 0) {
-        num_threads = cast_set<int>(data_dirs.size());
-    }
-
-    auto st = ThreadPoolBuilder("load_data_dir")
-                      .set_min_threads(num_threads)
-                      .set_max_threads(num_threads)
-                      .build(&pool);
-    CHECK(st.ok()) << st;
-
-    std::mutex result_mtx;
-    Status result;
-
-    for (auto* data_dir : data_dirs) {
-        st = pool->submit_func([&, data_dir] {
-            SCOPED_INIT_THREAD_CONTEXT();
-            {
-                std::lock_guard lock(result_mtx);
-                if (!result.ok()) { // Some data dir has failed
-                    return;
-                }
-            }
-
-            auto st = data_dir->load();
-            if (!st.ok()) {
-                LOG(WARNING) << "error occured when init load tables. res=" << st
-                             << ", data dir=" << data_dir->path();
-                std::lock_guard lock(result_mtx);
-                result = std::move(st);
-            }
-        });
-
-        if (!st.ok()) {
-            return st;
-        }
-    }
-
-    pool->wait();
-
-    return result;
+    // std::unique_ptr<ThreadPool> pool;
+    //
+    // int num_threads = config::load_data_dirs_threads;
+    // if (num_threads <= 0) {
+    //     num_threads = cast_set<int>(data_dirs.size());
+    // }
+    //
+    // auto st = ThreadPoolBuilder("load_data_dir")
+    //                   .set_min_threads(num_threads)
+    //                   .set_max_threads(num_threads)
+    //                   .build(&pool);
+    // CHECK(st.ok()) << st;
+    //
+    // std::mutex result_mtx;
+    // Status result;
+    //
+    // for (auto* data_dir : data_dirs) {
+    //     st = pool->submit_func([&, data_dir] {
+    //         SCOPED_INIT_THREAD_CONTEXT();
+    //         {
+    //             std::lock_guard lock(result_mtx);
+    //             if (!result.ok()) { // Some data dir has failed
+    //                 return;
+    //             }
+    //         }
+    //
+    //         auto st = data_dir->load();
+    //         if (!st.ok()) {
+    //             LOG(WARNING) << "error occured when init load tables. res=" << st
+    //                          << ", data dir=" << data_dir->path();
+    //             std::lock_guard lock(result_mtx);
+    //             result = std::move(st);
+    //         }
+    //     });
+    //
+    //     if (!st.ok()) {
+    //         return st;
+    //     }
+    // }
+    //
+    // pool->wait();
+    //
+    // return result;
+    return Status::OK();
 }
 
 Status StorageEngine::_open() {
