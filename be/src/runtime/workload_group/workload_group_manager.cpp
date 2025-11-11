@@ -26,7 +26,6 @@
 
 #include "common/config.h"
 #include "common/status.h"
-#include "exec/schema_scanner/schema_scanner_helper.h"
 #include "pipeline/task_scheduler.h"
 #include "runtime/fragment_mgr.h"
 #include "runtime/memory/global_memory_arbitrator.h"
@@ -248,28 +247,28 @@ void WorkloadGroupMgr::refresh_workload_group_memory_state() {
 }
 
 void WorkloadGroupMgr::get_wg_resource_usage(vectorized::Block* block) {
-    int64_t be_id = ExecEnv::GetInstance()->cluster_info()->backend_id;
-    int cpu_num = CpuInfo::num_cores();
-    cpu_num = cpu_num <= 0 ? 1 : cpu_num;
-    uint64_t total_cpu_time_ns_per_second = cpu_num * 1000000000LL;
-
-    std::shared_lock<std::shared_mutex> r_lock(_group_mutex);
-    block->reserve(_workload_groups.size());
-    for (const auto& [id, wg] : _workload_groups) {
-        SchemaScannerHelper::insert_int64_value(0, be_id, block);
-        SchemaScannerHelper::insert_int64_value(1, wg->id(), block);
-        SchemaScannerHelper::insert_int64_value(2, wg->get_metrics()->get_memory_used(), block);
-
-        double cpu_usage_p = (double)wg->get_metrics()->get_cpu_time_nanos_per_second() /
-                             (double)total_cpu_time_ns_per_second * 100;
-        cpu_usage_p = std::round(cpu_usage_p * 100.0) / 100.0;
-
-        SchemaScannerHelper::insert_double_value(3, cpu_usage_p, block);
-        SchemaScannerHelper::insert_int64_value(
-                4, wg->get_metrics()->get_local_scan_bytes_per_second(), block);
-        SchemaScannerHelper::insert_int64_value(
-                5, wg->get_metrics()->get_remote_scan_bytes_per_second(), block);
-    }
+    // int64_t be_id = ExecEnv::GetInstance()->cluster_info()->backend_id;
+    // int cpu_num = CpuInfo::num_cores();
+    // cpu_num = cpu_num <= 0 ? 1 : cpu_num;
+    // uint64_t total_cpu_time_ns_per_second = cpu_num * 1000000000LL;
+    //
+    // std::shared_lock<std::shared_mutex> r_lock(_group_mutex);
+    // block->reserve(_workload_groups.size());
+    // for (const auto& [id, wg] : _workload_groups) {
+    //     SchemaScannerHelper::insert_int64_value(0, be_id, block);
+    //     SchemaScannerHelper::insert_int64_value(1, wg->id(), block);
+    //     SchemaScannerHelper::insert_int64_value(2, wg->get_metrics()->get_memory_used(), block);
+    //
+    //     double cpu_usage_p = (double)wg->get_metrics()->get_cpu_time_nanos_per_second() /
+    //                          (double)total_cpu_time_ns_per_second * 100;
+    //     cpu_usage_p = std::round(cpu_usage_p * 100.0) / 100.0;
+    //
+    //     SchemaScannerHelper::insert_double_value(3, cpu_usage_p, block);
+    //     SchemaScannerHelper::insert_int64_value(
+    //             4, wg->get_metrics()->get_local_scan_bytes_per_second(), block);
+    //     SchemaScannerHelper::insert_int64_value(
+    //             5, wg->get_metrics()->get_remote_scan_bytes_per_second(), block);
+    // }
 }
 
 void WorkloadGroupMgr::refresh_workload_group_metrics() {

@@ -27,7 +27,6 @@
 #include <utility>
 
 #include "common/status.h"
-#include "exec/schema_scanner.h"
 #include "io/file_factory.h"
 #include "io/fs/buffered_reader.h"
 #include "io/fs/file_reader.h"

@@ -22,7 +22,6 @@
 #include <sstream>
 
 #include "common/logging.h"
-#include "exec/schema_scanner/schema_scanner_helper.h"
 #include "service/backend_options.h"
 #include "vec/core/block.h"
 
@@ -157,24 +156,24 @@ std::vector<KerberosTicketInfo> KerberosTicketMgr::get_krb_ticket_cache_info() {
 
 void KerberosTicketMgr::get_ticket_cache_info_block(vectorized::Block* block,
                                                     const cctz::time_zone& ctz) {
-    TBackend be = BackendOptions::get_local_backend();
-    int64_t be_id = be.id;
-    std::string be_ip = be.host;
-    std::vector<KerberosTicketInfo> infos = get_krb_ticket_cache_info();
-    for (auto& info : infos) {
-        SchemaScannerHelper::insert_int64_value(0, be_id, block);
-        SchemaScannerHelper::insert_string_value(1, be_ip, block);
-        SchemaScannerHelper::insert_string_value(2, info.principal, block);
-        SchemaScannerHelper::insert_string_value(3, info.keytab_path, block);
-        SchemaScannerHelper::insert_string_value(4, info.service_principal, block);
-        SchemaScannerHelper::insert_string_value(5, info.cache_path, block);
-        SchemaScannerHelper::insert_string_value(6, info.hash_code, block);
-        SchemaScannerHelper::insert_datetime_value(7, info.start_time, ctz, block);
-        SchemaScannerHelper::insert_datetime_value(8, info.expiry_time, ctz, block);
-        SchemaScannerHelper::insert_datetime_value(9, info.auth_time, ctz, block);
-        SchemaScannerHelper::insert_int64_value(10, info.use_count, block);
-        SchemaScannerHelper::insert_int64_value(11, info.refresh_interval_second, block);
-    }
+    // TBackend be = BackendOptions::get_local_backend();
+    // int64_t be_id = be.id;
+    // std::string be_ip = be.host;
+    // std::vector<KerberosTicketInfo> infos = get_krb_ticket_cache_info();
+    // for (auto& info : infos) {
+    //     SchemaScannerHelper::insert_int64_value(0, be_id, block);
+    //     SchemaScannerHelper::insert_string_value(1, be_ip, block);
+    //     SchemaScannerHelper::insert_string_value(2, info.principal, block);
+    //     SchemaScannerHelper::insert_string_value(3, info.keytab_path, block);
+    //     SchemaScannerHelper::insert_string_value(4, info.service_principal, block);
+    //     SchemaScannerHelper::insert_string_value(5, info.cache_path, block);
+    //     SchemaScannerHelper::insert_string_value(6, info.hash_code, block);
+    //     SchemaScannerHelper::insert_datetime_value(7, info.start_time, ctz, block);
+    //     SchemaScannerHelper::insert_datetime_value(8, info.expiry_time, ctz, block);
+    //     SchemaScannerHelper::insert_datetime_value(9, info.auth_time, ctz, block);
+    //     SchemaScannerHelper::insert_int64_value(10, info.use_count, block);
+    //     SchemaScannerHelper::insert_int64_value(11, info.refresh_interval_second, block);
+    // }
 }
 
 } // namespace doris::kerberos

@@ -58,7 +58,6 @@
 #include "pipeline/exec/partition_sort_source_operator.h"
 #include "pipeline/exec/result_file_sink_operator.h"
 #include "pipeline/exec/result_sink_operator.h"
-#include "pipeline/exec/schema_scan_operator.h"
 #include "pipeline/exec/sort_sink_operator.h"
 #include "pipeline/exec/sort_source_operator.h"
 #include "pipeline/local_exchange/local_exchange_sink_operator.h"
@@ -1339,11 +1338,6 @@ Status PipelineFragmentContext::_create_operator(ObjectPool* pool, const TPlanNo
         op = std::make_shared<DataGenSourceOperatorX>(pool, tnode, next_operator_id(), descs);
         RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
         fe_with_old_version = !tnode.__isset.is_serial_operator;
-        break;
-    }
-    case TPlanNodeType::SCHEMA_SCAN_NODE: {
-        op = std::make_shared<SchemaScanOperatorX>(pool, tnode, next_operator_id(), descs);
-        RETURN_IF_ERROR(cur_pipe->add_operator(op, _parallel_instances));
         break;
     }
     case TPlanNodeType::META_SCAN_NODE: {
